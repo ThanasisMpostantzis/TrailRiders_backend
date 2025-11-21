@@ -2,7 +2,7 @@
 
 
 // CONFIG
-require("dotenv").config()
+require("dotenv").config();
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -12,6 +12,9 @@ const cors = require('cors');
 
 // ROUTE VARS
 const indexRouter = require('./routes/index.js');
+const authRouter = require('./config/auth.js');
+const apiRouter = require('./routes/api.js');
+const forgotPasswordRouter = require('./routes/forgotPassword.js');
 
 
 // APP CONFIG
@@ -24,6 +27,9 @@ app.use(cors());
 
 // APP ROUTES
 app.use('/', indexRouter);
+app.use('/auth', authRouter);
+app.use('/api', apiRouter);
+app.use('/forgotPassword', forgotPasswordRouter);
 
 
 // APP SERVER
