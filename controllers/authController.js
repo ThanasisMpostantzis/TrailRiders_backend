@@ -1,6 +1,6 @@
 'use strict';
 
-const { dbConn, runQuery } = require('../config/databaseCon');
+const { runQuery } = require('../config/databaseCon');
 const { transporter, forgotPasswordTemplate, createPasswordResetUrl, passwordResetConfirmationTemplate } = require('../utils/mailService');
 const { createPasswordResetToken, createAccessToken, createRefreshToken } = require('../utils/tokens.js');
 
