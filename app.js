@@ -30,6 +30,7 @@ app.use('/', indexRouter);
 app.use('/auth', authRouter);
 app.use('/api', apiRouter);
 app.use('/forgotPassword', forgotPasswordRouter);
+app.use('/event/:userId');
 
 
 // APP SERVER
