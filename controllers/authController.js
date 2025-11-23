@@ -1,6 +1,6 @@
 'use strict';
 
-const dbConn = require('../config/databaseCon');
+const { dbConn, runQuery } = require('../config/databaseCon');
 const { transporter, forgotPasswordTemplate, createPasswordResetUrl, passwordResetConfirmationTemplate } = require('../utils/mailService');
 const { createPasswordResetToken, createAccessToken, createRefreshToken } = require('../utils/tokens.js');
 
@@ -192,15 +192,6 @@ const resetpwd = (req, res) => {
         }
     });
 };
-
-// FUNCTIONS
-function runQuery(query, callback) {
-    dbConn.query(query, (err, rows) => {
-        if (err) throw err;
-
-        return callback(rows[0]) // Returns actual data ONLY if query involves SELECTing data from database
-    });
-}
 
 /*
 function addRefreshToken(req, res, next) {

@@ -13,4 +13,12 @@ const pool = mysql.createPool({
     timeout: 5000
 });
 
-module.exports = pool;
+function runQuery(query, callback) {
+    pool.query(query, (err, rows) => {
+        if (err) throw err;
+
+        return callback(rows[0]) // Returns actual data ONLY if query involves SELECTing data from database
+    });
+}
+
+module.exports = { pool, runQuery };
