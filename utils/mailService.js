@@ -9,7 +9,7 @@ const transporter = nodeMailer.createTransport({
     port: 587,
     secure: false,
     auth: {
-        user: 'trailridersbot.mail@gmail.com', // DEN TO EFTIAXA AKOMA. AN TO FTIAXEIS ESY, PES MOU KWDIKO
+        user: process.env.MAIL,
         pass: process.env.MAIL_PASSWORD_APP
     },
     tls: {
@@ -22,7 +22,7 @@ const transporter = nodeMailer.createTransport({
 // ---TEMPLATES--- //
 const forgotPasswordTemplate = (email, url) => {
     return {
-        from: '"TrailRiders Automated Bot" <trailridersbot.mail@gmail.com>',
+        from: `"TrailRiders Automated Bot" <${process.env.MAIL}>`,
         to: email,
         subject: "Forgot Password",
         html: `<h2>Password Reset Link</h2>
@@ -32,7 +32,7 @@ const forgotPasswordTemplate = (email, url) => {
                <br />
                <small><a style="color: #38A169" href=${url}>${url}</a></small>
                <br />
-               <small>The link will expire in 15 mins!</small>
+               <small>The link will expire in 5 mins!</small>
                <small>If you haven't requested a password reset, cross your fingers.</small>
                <br /><br />
                <p>Thanks,</p>
@@ -42,7 +42,7 @@ const forgotPasswordTemplate = (email, url) => {
 
 const passwordResetConfirmationTemplate = (username, email) => {
     return {
-        from: '"TrailRiders Automated Bot" <trailridersbot.mail@gmail.com>',
+        from: `"TrailRiders Automated Bot" <${process.env.MAIL}>`,
         to: email,
         subject: `Password Reset Successful`,
         html: `<h2>Password Reset Successful</h2>

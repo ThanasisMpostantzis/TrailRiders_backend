@@ -148,8 +148,7 @@ const resetpwd = (req, res) => {
 
     let query = `SELECT username, password, email FROM user WHERE id = ${id}`;
 
-    runQuery(query, async (err, result) => {
-        if (err) throw err;
+    runQuery(query, async (result) => {
 
         // Token verification (check if expired)
         let flag = false;
@@ -171,7 +170,8 @@ const resetpwd = (req, res) => {
 
             let updateQuery = `UPDATE user SET password = '${newPass}' WHERE id = ${id}`
 
-            runQuery(updateQuery, async (err) => {
+            runQuery(updateQuery, async (result, err) => {
+                console.log(result);
                 if (err) {
                     return res.status(401).json({
                         message: "An error has occurred",
