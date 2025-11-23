@@ -1,5 +1,5 @@
 const express = require('express');
-const connection = require('../config/databaseCon.js');
+const { runQuery } = require('../config/databaseCon.js');
 const router = express.Router();
 
 router.get('/', (req, res) => {
@@ -9,14 +9,14 @@ router.get('/', (req, res) => {
 // Get user ID, return user stats
 router.get('/user/:userId', async (req, res) => {
     try {
-        const query = `SELECT id, username FROM user u WHERE u.id = ${req.params.farmerId}`
+        const query = `SELECT id, username FROM user u WHERE u.id = ${req.params.userId}`
 
-        connection.query(query, (err, rows) => {
-            if (err) {
-                throw err;
-            }
-
-            res.json(rows);
+        runQuery(query, (result) => {
+            if (result) res.json(result);
+            else res.status(404).json({
+                message: "User not found",
+                status: "user not found"
+            });
         });
 
     } catch (err) {
@@ -27,14 +27,14 @@ router.get('/user/:userId', async (req, res) => {
 // Get event ID, return event info
 router.get('/event/:eventId/', async (req, res) => {
     try {
-        let query = `SELECT * FROM event e WHERE e.id = ${req.params.fieldId}`
+        let query = `SELECT * FROM event e WHERE e.id = ${req.params.eventId}`
         
-        connection.query(query, async (err, rows, fields) => {
-            if (err) {
-                console.error(err);
-            }
-
-           res.json(rows);
+        runQuery(query, (result) => {
+            if (result) res.json(result);
+            else res.status(404).json({
+                message: "Event not found",
+                status: "event not found"
+            });
         });
 
     } catch (err) {
