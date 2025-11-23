@@ -22,23 +22,24 @@ const createPasswordResetToken = (user) => {
 
 // NO TOUCHY
 function authenticateToken(req, res, next) {
-    const token = req.cookies['accToken'];
+    const accToken = req.cookies['accToken'];
 
-    if (token == null) return res.status(401).json({
-        message: "Token not found",
-        type: "unauthorized access"
-    });
+    if (accToken) {
+        verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+            if (err) return res.status(403).json({
+                message: "Invalid Token",
+                type: "forbidden"
+            });
 
-    verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-        if (err) return res.status(403).json({
-            message: "Invalid Token",
-            type: "forbidden"
+            req.user = user;
+            next();
         });
-        //console.log(user);
-
-        req.user = user;
-        next();
-    });
+    } else {
+        return res.status(401).json({
+            message: "Token not found",
+            type: "unauthorized access"
+        });
+    }
 }
 
 module.exports = {

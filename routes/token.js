@@ -4,7 +4,7 @@ const { verify } = require('jsonwebtoken');
 
 const { createAccessToken } = require('../utils/tokens');
 
-router.post('/', (req, res) => {
+router.post('/', (req, res, next) => {
     let accToken = req.cookies['accToken'];
     let flag = false;
     if (accToken) {
