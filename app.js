@@ -16,6 +16,7 @@ const authRouter = require('./config/auth.js');
 const apiRouter = require('./routes/api.js');
 const forgotPasswordRouter = require('./routes/forgotPassword.js');
 const eventRouter = require('./routes/event.js');
+const ridesRoutes = require('./routes/rides.js');
 
 
 // APP CONFIG
@@ -32,6 +33,7 @@ app.use('/auth', authRouter);
 app.use('/api', apiRouter);
 app.use('/forgotPassword', forgotPasswordRouter);
 app.use('/event', eventRouter);
+app.use('/rides', ridesRoutes)
 
 
 // APP SERVER

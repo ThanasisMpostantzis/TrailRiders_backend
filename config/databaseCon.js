@@ -21,4 +21,14 @@ function runQuery(query, callback) {
     });
 }
 
+// Check connection
+pool.getConnection((err, connection) => {
+    if (err) {
+        console.error('Database connection failed: ', err.message);
+    } else {
+        console.log('Connected to Database successfully!');
+        connection.release();
+    }
+});
+
 module.exports = { pool, runQuery };
