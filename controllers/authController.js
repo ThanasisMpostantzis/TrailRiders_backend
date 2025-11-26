@@ -9,7 +9,7 @@ const { verify } = require('jsonwebtoken');
 
 // LOGIN FUNCTION
 const login = async (req, res, next) => {
-    const { username, pwd } = req.body;
+    const { username, pwd} = req.body;
 
     if (!username || !pwd) {
         return res.status(400).json({
@@ -48,7 +48,12 @@ const login = async (req, res, next) => {
                     message: "Login successful",
                     type: "success",
                     accessToken: accessToken,
-                    refreshToken: refreshToken
+                    refreshToken: refreshToken,
+                    user: {
+                        username: result.username,
+                        id: result.id,
+                        email: result.email
+                    }
                 });
             } else {
                 return res.status(401).json({
