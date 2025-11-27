@@ -2,7 +2,7 @@ const { pool } = require('../config/databaseCon.js');
 
 
 // ---------------------------------------------------
-// 1. GET ALL RIDES (Για το Home Screen)
+// 1. GET ALL RIDES
 // ---------------------------------------------------
 exports.getAllRides = (req, res) => {
     const query = "SELECT * FROM rides ORDER BY date ASC";
@@ -12,9 +12,6 @@ exports.getAllRides = (req, res) => {
             console.error(err);
             return res.status(500).json({ error: err.message });
         }
-
-        // Τα πεδία JSON (stops, joinedRiders) ίσως έρθουν ως String από τη βάση.
-        // Κάνουμε έναν έλεγχο και τα μετατρέπουμε σε κανονικά Arrays αν χρειαστεί.
         const rides = results.map(ride => ({
             ...ride,
             stops: typeof ride.stops === 'string' ? JSON.parse(ride.stops) : ride.stops,
@@ -26,7 +23,7 @@ exports.getAllRides = (req, res) => {
 };
 
 // ---------------------------------------------------
-// 2. GET RIDE BY ID (Για όταν πατάς πάνω σε ένα Ride)
+// 2. GET RIDE BY ID
 // ---------------------------------------------------
 exports.getRideById = (req, res) => {
     const { id } = req.params;
@@ -47,7 +44,7 @@ exports.getRideById = (req, res) => {
 };
 
 // ---------------------------------------------------
-// 3. CREATE RIDE (Δημιουργία νέας διαδρομής)
+// 3. CREATE RIDE
 // ---------------------------------------------------
 exports.createRide = (req, res) => {
     const {
@@ -56,11 +53,8 @@ exports.createRide = (req, res) => {
         description, stops, difficulty, rideType, expectedTime,
         startLat, startLng, endLat, endLng
     } = req.body;
-
-    // Μετατροπή των Arrays σε JSON Strings για να αποθηκευτούν στη βάση
-    // Αν το stops είναι ήδη array, το κάνουμε stringify. Αν δεν υπάρχει, βάζουμε '[]'
     const stopsJSON = stops ? JSON.stringify(stops) : '[]';
-    const usersIdJSON = usersId || '[]'; // Στην αρχή δεν έχει join κανείς (ή βάζεις τον organizer)
+    const usersIdJSON = usersId || '[]';
 
     const query = `
         INSERT INTO rides 
@@ -90,13 +84,13 @@ exports.createRide = (req, res) => {
 // 4. JOIN RIDE (Προσθήκη User στο joinedRiders)
 // ---------------------------------------------------
 exports.joinRide = (req, res) => {
-    const { rideId, userId } = req.body; // παίρνουμε το user ID ΠΛΕΟΝ
+    const { rideId } = req.body;
+    let userId = String(req.body.userId);
 
     if (!rideId || !userId) {
         return res.status(400).json({ message: "Missing rideId or userId" });
     }
 
-    // Βήμα 1: Φέρνουμε το current UsersId
     const getQuery = "SELECT UsersId FROM rides WHERE id = ?";
 
     pool.query(getQuery, [rideId], (err, results) => {
@@ -105,7 +99,6 @@ exports.joinRide = (req, res) => {
 
         let currentUsers = results[0].UsersId;
 
-        // Parse αν είναι string
         if (typeof currentUsers === 'string') {
             try {
                 currentUsers = JSON.parse(currentUsers);
@@ -114,20 +107,16 @@ exports.joinRide = (req, res) => {
             }
         }
 
-        // Αν null → κάντο array
         if (!Array.isArray(currentUsers)) currentUsers = [];
 
-        // Βήμα 2: έλεγχος αν ο χρήστης είναι ήδη μέσα
-        userId = String(userId); // πάντα string για safety
+        currentUsers = currentUsers.map(u => String(u));
 
         if (currentUsers.includes(userId)) {
             return res.status(400).json({ message: "User already joined" });
         }
 
-        // Βήμα 3: Προσθήκη user ID
         currentUsers.push(userId);
 
-        // Βήμα 4: Update στη DB
         const updateQuery = "UPDATE rides SET UsersId = ? WHERE id = ?";
         pool.query(updateQuery, [JSON.stringify(currentUsers), rideId], (updateErr) => {
             if (updateErr) return res.status(500).json({ error: updateErr.message });
