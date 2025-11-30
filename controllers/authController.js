@@ -9,7 +9,7 @@ const { verify } = require('jsonwebtoken');
 
 // LOGIN FUNCTION
 const login = async (req, res, next) => {
-    const { username, pwd } = req.body;
+    const { username, pwd} = req.body;
 
     if (!username || !pwd) {
         return res.status(400).json({
@@ -18,7 +18,7 @@ const login = async (req, res, next) => {
         });
     }
 
-    const query = `SELECT id, username, password, email FROM user WHERE username = "${username}"`;
+    const query = `SELECT id, username, password, email, image FROM user WHERE username = "${username}"`;
 
     runQuery(query, (result) => {
         if (result) {
@@ -28,7 +28,8 @@ const login = async (req, res, next) => {
                 const user = {
                     id: result.id,
                     username: username,
-                    email: result.email
+                    email: result.email,
+                    image: result.image
                 }
                 const accessToken = createAccessToken(user);
                 const refreshToken = createRefreshToken(user);
@@ -48,7 +49,13 @@ const login = async (req, res, next) => {
                     message: "Login successful",
                     type: "success",
                     accessToken: accessToken,
-                    refreshToken: refreshToken
+                    refreshToken: refreshToken,
+                    user: {
+                        username: result.username,
+                        id: result.id,
+                        email: result.email,
+                        image: result.image
+                    }
                 });
             } else {
                 return res.status(401).json({
@@ -76,7 +83,8 @@ const signup = async (req, res, next) => {
         });
     }
 
-    if (pwd.len < 6) {
+    //den douleuei
+    if (pwd.length < 6) {
         return res.status(400).json({
             message: "Password must be at least 6 characters long",
             status: "error"

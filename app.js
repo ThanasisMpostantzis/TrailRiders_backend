@@ -16,13 +16,14 @@ const authRouter = require('./config/auth.js');
 const apiRouter = require('./routes/api.js');
 const forgotPasswordRouter = require('./routes/forgotPassword.js');
 const eventRouter = require('./routes/event.js');
+const ridesRoutes = require('./routes/rides.js');
 
 
 // APP CONFIG
 const app = express();
 app.use(cookieParser());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cors());
 
 
@@ -32,6 +33,7 @@ app.use('/auth', authRouter);
 app.use('/api', apiRouter);
 app.use('/forgotPassword', forgotPasswordRouter);
 app.use('/event', eventRouter);
+app.use('/rides', ridesRoutes)
 
 
 // APP SERVER
