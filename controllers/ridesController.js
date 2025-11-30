@@ -1,9 +1,7 @@
 const { pool } = require('../config/databaseCon.js');
 
 
-// ---------------------------------------------------
 // 1. GET ALL RIDES
-// ---------------------------------------------------
 exports.getAllRides = (req, res) => {
     const query = "SELECT * FROM rides ORDER BY date ASC";
 
@@ -22,9 +20,7 @@ exports.getAllRides = (req, res) => {
     });
 };
 
-// ---------------------------------------------------
 // 2. GET RIDE BY ID
-// ---------------------------------------------------
 exports.getRideById = (req, res) => {
     const { id } = req.params;
     const query = "SELECT * FROM rides WHERE id = ?";
@@ -43,32 +39,90 @@ exports.getRideById = (req, res) => {
     });
 };
 
-// ---------------------------------------------------
 // 3. CREATE RIDE
-// ---------------------------------------------------
 exports.createRide = (req, res) => {
     const {
-        organizer, title, usersId, image, rideDistance,
-        startLocation, finishLocation, date, status, category,
-        description, stops, difficulty, rideType, expectedTime,
-        startLat, startLng, endLat, endLng
+        creatorId,
+        organizer, 
+        title, 
+        image, 
+        rideDistance,
+        startLocation, 
+        finishLocation, 
+        date, 
+        ride_time, 
+        // status, -> Το βγάζουμε από εδώ, θα το βάλουμε manually ΛΟΓΙΚΑ
+        category,
+        description, 
+        stops, 
+        difficulty, 
+        rideType, 
+        expectedTime,
+        startLat, 
+        startLng, 
+        endLat, 
+        endLng
     } = req.body;
+
+    // Μετατροπή Stops σε JSON
     const stopsJSON = stops ? JSON.stringify(stops) : '[]';
-    const usersIdJSON = usersId || '[]';
+
+    // Δημιουργία της λίστας συμμετεχόντων (ο Creator μπαίνει πρώτος)
+    const usersIdJSON = JSON.stringify([String(creatorId)]);
+
+    // Default Status
+    const rideStatus = 'upcoming';
 
     const query = `
         INSERT INTO rides 
-        (organizer, title, usersId, image, rideDistance, startLocation, 
-        finishLocation, date, status, category, description, stops, 
-        difficulty, rideType, expectedTime, startLat, startLng, endLat, endLng)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (
+            creator_id,
+            organizer, 
+            title, 
+            image, 
+            rideDistance, 
+            startLocation, 
+            finishLocation, 
+            date, 
+            ride_time, 
+            status, 
+            category, 
+            description, 
+            stops, 
+            difficulty, 
+            rideType, 
+            expectedTime, 
+            startLat, 
+            startLng, 
+            endLat, 
+            endLng,
+            usersId
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
-        organizer, title, usersIdJSON, image, rideDistance, 
-        startLocation, finishLocation, date, status, category, description, 
-        stopsJSON, difficulty, rideType, expectedTime, startLat, startLng, 
-        endLat, endLng
+        creatorId,
+        String(organizer), 
+        title, 
+        image, 
+        rideDistance, 
+        startLocation, 
+        finishLocation, 
+        date, 
+        ride_time, 
+        rideStatus,
+        category, 
+        description, 
+        stopsJSON, 
+        difficulty, 
+        rideType, 
+        expectedTime, 
+        startLat, 
+        startLng, 
+        endLat, 
+        endLng,
+        usersIdJSON
     ];
 
     pool.query(query, values, (err, result) => {
@@ -80,9 +134,7 @@ exports.createRide = (req, res) => {
     });
 };
 
-// ---------------------------------------------------
 // 4. JOIN RIDE (Προσθήκη User στο joinedRiders)
-// ---------------------------------------------------
 exports.joinRide = (req, res) => {
     const { rideId } = req.body;
     let userId = String(req.body.userId);

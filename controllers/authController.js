@@ -18,7 +18,7 @@ const login = async (req, res, next) => {
         });
     }
 
-    const query = `SELECT id, username, password, email FROM user WHERE username = "${username}"`;
+    const query = `SELECT id, username, password, email, image FROM user WHERE username = "${username}"`;
 
     runQuery(query, (result) => {
         if (result) {
@@ -28,7 +28,8 @@ const login = async (req, res, next) => {
                 const user = {
                     id: result.id,
                     username: username,
-                    email: result.email
+                    email: result.email,
+                    image: result.image
                 }
                 const accessToken = createAccessToken(user);
                 const refreshToken = createRefreshToken(user);
@@ -52,7 +53,8 @@ const login = async (req, res, next) => {
                     user: {
                         username: result.username,
                         id: result.id,
-                        email: result.email
+                        email: result.email,
+                        image: result.image
                     }
                 });
             } else {
