@@ -9,7 +9,7 @@ const { verify } = require('jsonwebtoken');
 
 // LOGIN FUNCTION
 const login = async (req, res, next) => {
-    const { username, pwd} = req.body;
+    const { username, pwd } = req.body;
 
     if (!username || !pwd) {
         return res.status(400).json({
@@ -73,7 +73,7 @@ const login = async (req, res, next) => {
 }
 
 // SIGNUP FUNCTION
-const signup = async (req, res, next) => {
+const signup = async (req, res) => {
     const { email, username, pwd } = req.body;
 
     if (!username || !pwd) {
@@ -157,7 +157,6 @@ const resetpwd = (req, res) => {
     let query = `SELECT username, password, email FROM user WHERE id = ${id}`;
 
     runQuery(query, async (result) => {
-
         // Token verification (check if expired)
         let flag = false;
         try {
@@ -165,7 +164,7 @@ const resetpwd = (req, res) => {
             flag = true;
         } catch {
             return res.status(401).json({
-                message: "Invalid token",
+                message: "Invalid or expired token",
                 type: "error"
             });
         }
@@ -200,6 +199,47 @@ const resetpwd = (req, res) => {
         }
     });
 };
+
+
+// DELETE USER FUNCTION
+const deleteUser = (req, res) => {
+    const { id, username, confirmUsername } = req.body;
+
+    try {
+        verify(req.cookies['accToken'], process.env.ACCESS_TOKEN_SECRET);
+    } catch {
+        return res.status(400).json({
+            message: "Invalid or expired token",
+            status: "400 Bad Request"
+        });
+    }
+
+    // USER MUST CONFIRM USERNAME TO DELETE THEIR ACCOUNT. ALSO MAY WANT TO CHECK SANITY STATUS & WELLBEING. PERHAPS CALL THE OPPS
+    // WILL ALSO IMPLEMENT GRACE PERIOD OF 30 DAYS. MAYBE JUST MAYBE EVEN MAYBE THEY CHANGE THEIR MIND. SANITY = 3%
+
+    if (username != confirmUsername) {
+        res.status(400).json({
+            message: "Wrong username",
+            error: "400 Bad Request"
+        });
+    } else {
+        let query = `DELETE FROM user WHERE username = '${username}' AND id = ${id}`
+
+        runQuery(query, async (result, err) => {
+            if (err) {
+                return res.status(400).json({
+                    message: "An error has occurred",
+                    type: "error"
+                });
+            } else {
+                return res.status(200).json({
+                    message: "Account deleted successfully",
+                    type: "success"
+                });
+            }
+        });
+    }
+}
 
 /*
 function addRefreshToken(req, res, next) {
@@ -244,5 +284,6 @@ module.exports = {
     login,
     signup,
     forgotpwd,
-    resetpwd
+    resetpwd,
+    deleteUser
 };
