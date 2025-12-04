@@ -5,7 +5,7 @@ const { transporter, forgotPasswordTemplate, createPasswordResetUrl, passwordRes
 const { createPasswordResetToken, createAccessToken, createRefreshToken } = require('../utils/tokens.js');
 
 const { verify } = require('jsonwebtoken');
-
+const bcrypt = require('bcryptjs');
 
 // LOGIN FUNCTION
 const login = async (req, res, next) => {
@@ -241,6 +241,79 @@ const deleteUser = (req, res) => {
     }
 }
 
+// CHANGE PASSWORD FUNCTION
+const changePassword = async (req, res) => {
+    // ✅ Fix: Σωστό destructuring με const και προσθήκη confirmNewPassword
+    const { id, oldPassword, newPassword, confirmNewPassword } = req.body;
+    
+    // --- 1. Έλεγχος Token (Authentication) ---
+    try {
+        // Αυτό διασφαλίζει ότι ο χρήστης είναι τουλάχιστον συνδεδεμένος.
+        verify(req.cookies['accToken'], process.env.ACCESS_TOKEN_SECRET);
+    } catch {
+        return res.status(401).json({
+            message: "Invalid or expired token",
+            status: "401 Unauthorized"
+        });
+    }
+
+    // --- 2. Έλεγχος 1: New Password Mismatch ---
+    if (newPassword !== confirmNewPassword) {
+        return res.status(400).json({
+            message: "Mismatch password (New passwords do not match)",
+            error: "400 Bad Request"
+        });
+    }
+
+    // --- 3. Έλεγχος 2: Ανάκτηση και Σύγκριση Παλιού Κωδικού (Plaintext) ---
+    try {
+        // INSECURE: Λαμβάνουμε τον κωδικό ως απλό κείμενο (ή hash) για σύγκριση
+        const selectQuery = 'SELECT password FROM user WHERE id = ?'; 
+        const storedUser = await runQuery(selectQuery, [id]); // Χρησιμοποιούμε το ID από το body
+
+        if (!storedUser || storedUser.length === 0) {
+            return res.status(404).json({ message: "User ID not found in database" });
+        }
+        
+        const storedPassword = storedUser[0].password;
+        
+        // Σύγκριση του παλιού κωδικού (Plaintext check)
+        if (oldPassword !== storedPassword) { 
+            return res.status(401).json({
+                message: "Old password does not match",
+                status: "401 Unauthorized"
+            });
+        }
+        
+        // --- 4. UPDATE: Αποθήκευση Νέου Κωδικού (Plaintext) ---
+        // Χρησιμοποιούμε Prepared Statements (?) για ασφάλεια στο SQL Injection
+        const updateQuery = 'UPDATE user SET password = ? WHERE id = ?';
+        
+        runQuery(updateQuery, [newPassword, id], (result, err) => { 
+            if (err) {
+                console.error("DB UPDATE ERROR:", err);
+                return res.status(500).json({
+                    message: "An internal database error occurred",
+                    type: "error"
+                });
+            } else {
+                return res.status(200).json({
+                    message: "Password updated successfully",
+                    type: "success"
+                });
+            }
+        });
+
+    } catch (dbError) {
+        console.error("Error during password check:", dbError);
+        return res.status(500).json({
+            message: "Internal server error during password verification.",
+            type: "error"
+        });
+    }
+}
+
+
 /*
 function addRefreshToken(req, res, next) {
     console.log(req.user)
@@ -285,5 +358,6 @@ module.exports = {
     signup,
     forgotpwd,
     resetpwd,
-    deleteUser
+    deleteUser,
+    changePassword
 };
