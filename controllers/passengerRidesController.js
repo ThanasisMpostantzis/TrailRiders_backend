@@ -120,9 +120,6 @@ exports.joinPRide = (req, res) => {
     let query = `SELECT pr.id, u.id, requests FROM passengerride pr, user u WHERE pr.id = ${rideId} AND u.id = ${userId}`;
 
     runQuery(query, (result) => {
-        if (!result) return res.status(404).json({ message: "Ride not found" });
-        console.log(result[0]);
-
         let requests = result.length === 0 ? [] : result[0].requests;
 
         if (typeof requests === 'string') {
@@ -141,12 +138,7 @@ exports.joinPRide = (req, res) => {
             return res.status(400).json({ message: "User already joined" });
         }
 
-        let userObj = {
-            userId: userId,
-            fullname: result.fullName
-        }
-
-        requests.push(userObj);
+        requests.push(userId);
         console.log(requests)
 
         let query = `UPDATE passengerRide SET requests = ${JSON.stringify(requests)} WHERE passengerRide.id = ${rideId}`;
@@ -162,26 +154,24 @@ exports.joinPRide = (req, res) => {
 
 // OWNER SELECTS PASSENGER
 exports.selectPassenger = (req, res) => {
+    const { userId } = req.body;
     let query = `SELECT selectedPassenger FROM passenger_ride`
 
     runQuery(query, (result) => {
-        if (result != undefined) {
+        if (result != undefined || null) {
             return res.status(400).json({
                 message: "Ride owner has already selected user",
                 status: "400 Bad Request"
             });
         } else {
-            query = `INSERT INTO passenger_ride (selectedPassenger) VALUES (${JSON.stringify(req.body)})` // FETCH SELECTED USER INFO FROM FRONTEND
+            query = `INSERT INTO passenger_ride (selectedPassenger) VALUES (${JSON.stringify(userId)})` // FETCH SELECTED USER INFO FROM FRONTEND
 
             runQuery(query, (result) => {
-                console.log(result);
                 return res.status(200).json({
                     message: "User inserted successfully",
                     status: "200 OK"
                 });
             })
         }
-    })
-
-    
+    })   
 }

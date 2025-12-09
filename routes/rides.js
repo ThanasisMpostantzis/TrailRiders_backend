@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const ridesController = require('../controllers/ridesController');
+const { getAllRides, getRideById, createRide, joinRide } = require('../controllers/ridesController');
 
 // Routes
-router.get('/getAllRides', ridesController.getAllRides);
-router.get('/get/:id', ridesController.getRideById);
-router.post('/createRide', ridesController.createRide);
-router.post('/joinRide', ridesController.joinRide);
+router.get('/getAllRides', getAllRides);
+router.get('/get/:id', getRideById);
+router.post('/createRide', createRide);
+router.post('/joinRide', joinRide);
 
 module.exports = router;
