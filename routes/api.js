@@ -9,7 +9,7 @@ router.get('/', (req, res) => {
 // --- GET USER PROFILE ---
 router.get('/user/:userId', async (req, res) => {
     try {
-        const userId = req.params.userId;
+        const { userId } = req.params;
         console.log(`[API] Searching for User ID: ${userId}`);
 
         const query = `SELECT * FROM user WHERE id = ${userId}`;
@@ -17,9 +17,9 @@ router.get('/user/:userId', async (req, res) => {
         runQuery(query, (result) => {
             if (result) {
                 // Αν γυρίσει array ή object το φτιάχνουμε
-                const finalResult = Array.isArray(result) ? result : [result];
+                //const finalResult = Array.isArray(result) ? result : [result];
                 console.log("[API] User Found!");
-                res.json(finalResult);
+                res.status(200).json(result);
             } else {
                 console.log("[API] DB returned nothing/null");
                 res.status(404).json({ message: "User not found" });
@@ -33,7 +33,7 @@ router.get('/user/:userId', async (req, res) => {
 });
 
 
-// --- UPDATE PROFILE --
+// --- UPDATE PROFILE ---
 router.post('/user/updateProfile', async (req, res) => {
     try {
         const { id, fullName, bike, location, bio, tags, image, cover } = req.body;
