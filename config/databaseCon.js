@@ -15,7 +15,7 @@ const pool = mysql.createPool({
 
 function runQuery(query, callback) {
     pool.query(query, (err, rows) => {
-        if (err) throw err;
+        if (err) return console.log(err);
 
         return callback(rows[0]) // Returns actual data ONLY if query involves SELECTing data from database
     });

@@ -1,16 +1,12 @@
-const { pool } = require('../config/databaseCon.js');
+const { runQuery } = require('../config/databaseCon.js');
 
 
 // 1. GET ALL RIDES
 exports.getAllRides = (req, res) => {
     const query = "SELECT * FROM rides ORDER BY date ASC";
 
-    pool.query(query, (err, results) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).json({ error: err.message });
-        }
-        const rides = results.map(ride => ({
+    runQuery(query, (result) => {
+        const rides = result.map(ride => ({
             ...ride,
             stops: typeof ride.stops === 'string' ? JSON.parse(ride.stops) : ride.stops,
             joinedRiders: typeof ride.joinedRiders === 'string' ? JSON.parse(ride.joinedRiders) : ride.joinedRiders
@@ -23,13 +19,12 @@ exports.getAllRides = (req, res) => {
 // 2. GET RIDE BY ID
 exports.getRideById = (req, res) => {
     const { id } = req.params;
-    const query = "SELECT * FROM rides WHERE id = ?";
+    const query = `SELECT * FROM rides WHERE id = ${id}`;
 
-    pool.query(query, [id], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (results.length === 0) return res.status(404).json({ message: "Ride not found" });
+    runQuery(query, (result) => {
+        if (result.length === 0) return res.status(404).json({ message: "Ride not found" });
 
-        const ride = results[0];
+        const ride = result[0];
         
         // Parsing JSON fields
         ride.stops = typeof ride.stops === 'string' ? JSON.parse(ride.stops) : ride.stops;
@@ -61,7 +56,7 @@ exports.createRide = (req, res) => {
         startLat, 
         startLng, 
         endLat, 
-        endLng
+        endLng,
     } = req.body;
 
     // Μετατροπή Stops σε JSON
@@ -137,19 +132,18 @@ exports.createRide = (req, res) => {
 // 4. JOIN RIDE (Προσθήκη User στο joinedRiders)
 exports.joinRide = (req, res) => {
     const { rideId } = req.body;
-    let userId = String(req.body.userId);
+    const { userId } = String(req.body);
 
     if (!rideId || !userId) {
         return res.status(400).json({ message: "Missing rideId or userId" });
     }
 
-    const getQuery = "SELECT UsersId FROM rides WHERE id = ?";
+    const query = `SELECT UsersId FROM rides WHERE id = ${rideId}`;
 
-    pool.query(getQuery, [rideId], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (results.length === 0) return res.status(404).json({ message: "Ride not found" });
+    runQuery(query, (result) => {
+        if (result.length === 0) return res.status(404).json({ message: "Ride not found" });
 
-        let currentUsers = results[0].UsersId;
+        let currentUsers = result[0].UsersId;
 
         if (typeof currentUsers === 'string') {
             try {
@@ -169,8 +163,8 @@ exports.joinRide = (req, res) => {
 
         currentUsers.push(userId);
 
-        const updateQuery = "UPDATE rides SET UsersId = ? WHERE id = ?";
-        pool.query(updateQuery, [JSON.stringify(currentUsers), rideId], (updateErr) => {
+        const updateQuery = `UPDATE rides SET UsersId = ${JSON.stringify(currentUsers)} WHERE id = ${rideId}`;
+        runQuery(updateQuery, (result) => {
             if (updateErr) return res.status(500).json({ error: updateErr.message });
 
             return res.status(200).json({
