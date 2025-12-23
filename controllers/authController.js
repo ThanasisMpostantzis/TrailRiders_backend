@@ -33,7 +33,7 @@ const login = async (req, res, next) => {
                 }
                 const accessToken = createAccessToken(user);
                 const refreshToken = createRefreshToken(user);
-                let accessCookie = res.cookie.accToken;
+                let accessCookie = res.cookie['accToken'];
                 if (!accessCookie) {
                     res.cookie('accToken', accessToken, { maxAge: 60 * 1000 });
                 } else {

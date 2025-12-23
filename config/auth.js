@@ -1,7 +1,6 @@
 'use strict';
 
 const express = require('express');
-const path = require('path');
 const router = express.Router();
 
 const { forgotpwd, resetpwd, login, signup, deleteUser } = require('../controllers/authController');
@@ -11,7 +10,8 @@ router.get('/', (req, res) => {
     res.send("<h4> Auth Root </h4>");
 });
 
-router.use('/token', tokenRouter)
+router.route('/token', tokenRouter);
+//router.post('/subscribed');
 router.post('/login', login);
 router.post('/signup', signup)
 router.post('/forgotPassword', forgotpwd);

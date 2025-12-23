@@ -6,19 +6,17 @@ const { createAccessToken } = require('../utils/tokens');
 
 router.post('/', (req, res) => {
     let accToken = req.cookies['accToken'];
-    let flag = false;
+
     if (accToken) {
         verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
             if (!err) {
-                flag = true;
                 return res.status(401).json({
                     message: "User already logged in",
                     status: "error"
                 });
             }
         });
-    }
-    if (flag) return;
+    } else return;
     
     const refToken = req.cookies['refToken'];
 
@@ -39,6 +37,25 @@ router.post('/', (req, res) => {
             accessToken: accessToken
         });
     });
-})
+});
 
-module.exports = router;
+async function fetch() {
+    let accToken = req.cookies['accToken'];
+    if (accToken) {
+        verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+            if (!err) {
+                flag = true;
+                return res.status(401).json({
+                    message: "User already logged in",
+                    status: "error"
+                });
+            } else {
+                return res.status(200).json({
+                    user: user
+                });
+            }
+        });
+    } else return;
+}
+
+module.exports = { router, fetch };
