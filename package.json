@@ -1,0 +1,31 @@
+{
+  "name": "trailriders_backend",
+  "version": "1.0.0",
+  "description": "TrailRiders backend repository",
+  "main": "app.js",
+  "scripts": {
+    "test": "run dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ThanasisMpostantzis/TrailRiders_backend.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ThanasisMpostantzis/TrailRiders_backend/issues"
+  },
+  "homepage": "https://github.com/ThanasisMpostantzis/TrailRiders_backend#readme",
+  "dependencies": {
+    "body-parser": "^2.2.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "js-cookie": "^3.0.5",
+    "jsonwebtoken": "^9.0.3",
+    "mysql": "^2.18.1",
+    "nodemailer": "^7.0.12",
+    "path": "^0.12.7"
+  }
+}
