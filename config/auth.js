@@ -15,7 +15,7 @@ router.post('/token', tokenCheck);
 router.post('/login', login);
 router.post('/signup', signup)
 router.post('/forgotPassword', forgotpwd);
-router.route('/resetPassword/:id/:token').post(resetpwd); // LINK IS ACCESSED ONLY FROM EMAIL; IT'S NOT EYE CANDY
+router.route('/resetPassword/:token').post(resetpwd); // LINK IS ACCESSED ONLY FROM EMAIL; IT'S NOT EYE CANDY
 router.post('/deleteUser', deleteUser);
 router.post('/changePassword', changePassword);
 

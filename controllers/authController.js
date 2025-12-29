@@ -4,7 +4,7 @@ const { runQuery } = require('../config/databaseCon');
 const { transporter, forgotPasswordTemplate, createPasswordResetUrl, passwordResetConfirmationTemplate } = require('../utils/mailService');
 const { createPasswordResetToken, createAccessToken, createRefreshToken } = require('../utils/tokens.js');
 
-const { verify } = require('jsonwebtoken');
+const { verify, decode } = require('jsonwebtoken');
 //const bcrypt = require('bcryptjs');
 
 // LOGIN FUNCTION
@@ -129,12 +129,12 @@ const forgotpwd = async (req, res) => {
             };
 
             const token = createPasswordResetToken(user); // Create password reset token
-            const url = createPasswordResetUrl(user.id, token); // Generate password reset URL
+            const url = createPasswordResetUrl(token); // Generate password reset URL
             const mailOptions = forgotPasswordTemplate(email, url);
 
             const info = await transporter.sendMail(mailOptions);
 
-            console.log("E-mail sent. Transaction id: %s", info.messageId);
+            console.log("Password reset e-mail sent. Transaction ID: %s", info.messageId);
 
             return res.status(200).json({
                 message: "Password reset link has been sent",
@@ -151,7 +151,17 @@ const forgotpwd = async (req, res) => {
 
 const resetpwd = (req, res) => {
     const { newPass, repeatNewPass } = req.body;
-    const { id, token } = req.params;
+    const { token } = req.params;
+    
+    // Token verification (check if expired)
+    try {
+        verify(token, process.env.FORGOT_PASSWORD_TOKEN_SECRET);
+    } catch {
+        return res.status(401).json({
+            message: "Invalid or expired token",
+            type: "error"
+        });
+    }
 
     if (newPass !== repeatNewPass) {
         return res.status(401).json({
@@ -160,31 +170,19 @@ const resetpwd = (req, res) => {
         });
     }
 
-    let query = `SELECT username, password, email FROM user WHERE id = ${id}`;
+    const user = decode(token);
+    let query = `SELECT username, password, email FROM user WHERE id = ${user.id}`;
 
     runQuery(query, async (result) => {
-        // Token verification (check if expired)
-        let flag = false;
-        try {
-            verify(token, process.env.FORGOT_PASSWORD_TOKEN_SECRET);
-            flag = true;
-        } catch {
-            return res.status(401).json({
-                message: "Invalid or expired token",
-                type: "error"
-            });
-        }
-
-        if (flag) {
+        if (result) {
             const mailOptions = passwordResetConfirmationTemplate(result.username, result.email);
             const info = await transporter.sendMail(mailOptions);
 
-            console.log("E-mail sent: %s", info.messageId);
+            console.log("Confirmation e-mail sent. Transaction ID: %s", info.messageId);
 
-            let updateQuery = `UPDATE user SET password = '${newPass}' WHERE id = ${id}`
+            let updateQuery = `UPDATE user SET password = '${newPass}' WHERE id = ${user.id}`
 
             runQuery(updateQuery, async (result, err) => {
-                console.log(result);
                 if (err) {
                     return res.status(401).json({
                         message: "An error has occurred",
@@ -209,10 +207,10 @@ const resetpwd = (req, res) => {
 
 // DELETE USER FUNCTION
 const deleteUser = (req, res) => {
-    const { id, username, confirmUsername } = req.body;
+    const { username, confirmUsername } = req.body;
 
     try {
-        verify(req.cookies['accToken'], process.env.ACCESS_TOKEN_SECRET);
+        verify(req.cookie.accToken, process.env.ACCESS_TOKEN_SECRET);
     } catch {
         return res.status(400).json({
             message: "Invalid or expired token",
@@ -229,7 +227,8 @@ const deleteUser = (req, res) => {
             error: "400 Bad Request"
         });
     } else {
-        let query = `DELETE FROM user WHERE username = '${username}' AND id = ${id}`
+        const user = decode(req.cookie.accToken);
+        let query = `DELETE FROM user WHERE username = '${username}' AND id = ${user.id}`
 
         runQuery(query, async (result, err) => {
             if (err) {
