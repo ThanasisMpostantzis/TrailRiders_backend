@@ -2,7 +2,7 @@ const nodeMailer = require('nodemailer')
 
 
 // CONFIG
-const createPasswordResetUrl = (id, token) => `http://localhost:${process.env.PORT || 8000}/auth/resetPassword/${id}/${token}`
+const createPasswordResetUrl = (id, token) => `http://localhost:${process.env.PORT || 8000}/auth/resetPassword/${token}`
 
 const transporter = nodeMailer.createTransport({
     host: 'smtp.gmail.com',
@@ -44,8 +44,8 @@ const passwordResetConfirmationTemplate = (username, email) => {
     return {
         from: `"TrailRiders Automated Bot" <${process.env.MAIL}>`,
         to: email,
-        subject: `Password Reset Successful`,
-        html: `<h2>Password Reset Successful</h2>
+        subject: `Your password was reset`,
+        html: `<h2>Password Reset Successfully</h2>
                <p>You've successfully updated your password for your account ${username}. </p>
                <small>If you did not change your password, reset it from your account.</small>
                <br /><br />

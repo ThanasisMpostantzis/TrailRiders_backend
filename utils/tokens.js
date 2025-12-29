@@ -1,20 +1,22 @@
 const { sign, verify } = require('jsonwebtoken');
 
 
+// Make sure the cookie & token expiration time are the same duration (authController.js > login())
+
 const createRefreshToken = (user) => {
     return sign(user, process.env.REFRESH_TOKEN_SECRET, {
-        expiresIn: "10m" // Make sure the cookie expiration time & this are the same duration (authController.js, line 44)
+        expiresIn: "10m"
     });
 }
 
 const createAccessToken = (user) => {
     return sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "10m"
+        expiresIn: "1m"
     });
 }
 
 const createPasswordResetToken = (user) => {
-    return sign({username: user.username}, process.env.FORGOT_PASSWORD_TOKEN_SECRET, {
+    return sign(user, process.env.FORGOT_PASSWORD_TOKEN_SECRET, {
         expiresIn: "5m"
     });
 };
@@ -22,7 +24,7 @@ const createPasswordResetToken = (user) => {
 
 // NO TOUCHY
 function authenticateToken(req, res, next) {
-    const accToken = req.cookies['accToken'];
+    const accToken = req.cookies.accToken;
 
     if (accToken) {
         verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
