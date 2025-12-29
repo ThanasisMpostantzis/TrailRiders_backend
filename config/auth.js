@@ -4,13 +4,13 @@ const express = require('express');
 const router = express.Router();
 
 const { forgotpwd, resetpwd, login, signup, deleteUser, changePassword } = require('../controllers/authController');
-const tokenRouter = require('../routes/token.js');
+const { tokenCheck } = require('../routes/token.js');
 
 router.get('/', (req, res) => {
     res.send("<h4> Auth Root </h4>");
 });
 
-router.route('/token', tokenRouter);
+router.post('/token', tokenCheck);
 //router.post('/subscribed');
 router.post('/login', login);
 router.post('/signup', signup)

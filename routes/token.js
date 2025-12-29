@@ -1,46 +1,57 @@
-const express = require('express');
-const router = express.Router();
-const { verify } = require('jsonwebtoken');
+const { verify, decode } = require('jsonwebtoken');
 
 const { createAccessToken } = require('../utils/tokens');
 
-router.post('/', (req, res) => {
-    let accToken = req.cookies['accToken'];
-
+const tokenCheck = async (req, res) => {
+    // Check for access token
+    const accToken = req.cookies.accToken;
     if (accToken) {
-        verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-            if (!err) {
-                return res.status(401).json({
-                    message: "User already logged in",
-                    status: "error"
-                });
+        const user = decode(accToken);
+        return res.status(401).json({
+            message: "User already logged in",
+            user: {
+                id: user.id,
+                username: user.username
             }
         });
-    } else return;
+    }
     
-    const refToken = req.cookies['refToken'];
-
+    // Check for refresh token
+    const refToken = req.cookies.refToken;
     if (!refToken) return res.status(404).json({
-        message: "cookie not found",
+        message: "User hasn't logged in in a looooong time (death row)",
         type: "error"
     });
 
     verify(refToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
-        if (err) return res.status(403).json({
+        if (err) return res.status(400).json({
             message: "Invalid Token",
             type: "error"
         });
 
-        const accessToken = createAccessToken({ username: user.username });
-        res.cookie('accToken', accessToken, { maxAge: 60 * 1000 });
+        const userPayload = {
+            id: user.id,
+            username: user.username
+        }
+
+        const accessToken = createAccessToken(userPayload);
+        res.cookie('accToken', accessToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "strict",
+            maxAge: 60 * 1000 // 1 min
+        });
+
         return res.status(200).json({
             accessToken: accessToken
         });
     });
-});
+};
 
-async function fetch() {
-    let accToken = req.cookies['accToken'];
+
+const fetch = () => {
+    let accToken = req.cookie.accToken;
+
     if (accToken) {
         verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
             if (!err) {
@@ -51,11 +62,12 @@ async function fetch() {
                 });
             } else {
                 return res.status(200).json({
-                    user: user
+                    id: user.id,
+                    username: user.username
                 });
             }
         });
     } else return;
 }
 
-module.exports = { router, fetch };
+module.exports = { tokenCheck, fetch };

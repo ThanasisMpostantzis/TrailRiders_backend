@@ -5,10 +5,10 @@ const { transporter, forgotPasswordTemplate, createPasswordResetUrl, passwordRes
 const { createPasswordResetToken, createAccessToken, createRefreshToken } = require('../utils/tokens.js');
 
 const { verify } = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+//const bcrypt = require('bcryptjs');
 
 // LOGIN FUNCTION
-const login = async (req, res, next) => {
+const login = async (req, res) => {
     const { username, pwd } = req.body;
 
     if (!username || !pwd) {
@@ -20,31 +20,38 @@ const login = async (req, res, next) => {
 
     const query = `SELECT id, username, password, email, image FROM user WHERE username = "${username}"`;
 
-    runQuery(query, (result) => {
+    runQuery(query, async (result) => {
         if (result) {
             const compare = (result.password == pwd)
 
             if (compare) {
-                const user = {
+                const userPayload = {
                     id: result.id,
-                    username: username,
-                    email: result.email,
-                    image: result.image
+                    username: result.username
                 }
-                const accessToken = createAccessToken(user);
-                const refreshToken = createRefreshToken(user);
-                let accessCookie = res.cookie['accToken'];
+                const accessToken = createAccessToken(userPayload);
+                const refreshToken = createRefreshToken(userPayload);
+                
+                let accessCookie = req.cookies.accToken; // CHECK IF ALREADY LOGGED IN
                 if (!accessCookie) {
-                    res.cookie('accToken', accessToken, { maxAge: 60 * 1000 });
+                    res.cookie('accToken', accessToken, {
+                        httpOnly: true,
+                        secure: true,
+                        sameSite: "strict",
+                        maxAge: 60 * 1000 // 1 min
+                    });
                 } else {
                     return res.status(401).json({
                         message: "User already logged in",
                         status: "error"
                     });
                 }
-                res.cookie('refToken', refreshToken, { maxAge: 600 * 1000 });
-                //addCookie('refToken', refreshToken, 7);
-                console.log(req.get('Header'));
+                res.cookie('refToken', refreshToken, {
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: "strict",
+                    maxAge: 10 * 60 * 1000 // 10 min
+                });
 
                 return res.status(200).json({
                     message: "Login successful",
@@ -52,10 +59,8 @@ const login = async (req, res, next) => {
                     accessToken: accessToken,
                     refreshToken: refreshToken,
                     user: {
-                        username: result.username,
                         id: result.id,
-                        email: result.email,
-                        image: result.image
+                        username: result.username
                     }
                 });
             } else {
