@@ -44,6 +44,7 @@ const login = async (req, res, next) => {
                 }
                 res.cookie('refToken', refreshToken, { maxAge: 600 * 1000 });
                 //addCookie('refToken', refreshToken, 7);
+                console.log(req.get('Header'));
 
                 return res.status(200).json({
                     message: "Login successful",
