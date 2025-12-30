@@ -5,14 +5,16 @@ const { runQuery } = require('../config/databaseCon.js');
 exports.getAllPRides = (req, res) => {
     const query = "SELECT * FROM passengerRide ORDER BY date ASC";
 
-    runQuery(query, (results) => {
-        const rides = results.map(ride => ({
+    runQuery(query, (result) => {
+        /*
+        const rides = [results].map(ride => ({
             ...ride,
             stops: typeof ride.stops === 'string' ? JSON.parse(ride.stops) : ride.stops,
             joinedRiders: typeof ride.joinedRiders === 'string' ? JSON.parse(ride.joinedRiders) : ride.joinedRiders
         }));
+        */
 
-        res.status(200).json(rides);
+        res.status(200).json(result);
     });
 };
 
@@ -22,16 +24,16 @@ exports.getPRideById = (req, res) => {
     const { id } = req.params;
     const query = `SELECT * FROM passengerRide WHERE id = ${id}`;
 
-    runQuery(query, (results) => {
-        if (results.length === 0) return res.status(404).json({ message: "Ride not found" });
-
-        const ride = results[0];
+    runQuery(query, (result) => {
+        if (!result) return res.status(404).json({ message: "Ride not found", type: "error" });
         
+        /*
         // Parsing JSON fields
         ride.stops = typeof ride.stops === 'string' ? JSON.parse(ride.stops) : ride.stops;
         ride.joinedRiders = typeof ride.joinedRiders === 'string' ? JSON.parse(ride.joinedRiders) : ride.joinedRiders;
+        */
 
-        res.status(200).json(ride);
+        res.status(200).json(result);
     });
 };
 
@@ -57,59 +59,71 @@ exports.createPRide = (req, res) => {
         organizer,
     } = req.body;
 
-    const stopsJSON = stops ? JSON.stringify(stops) : '[]';
+    const checkQuery = `SELECT creatorId, title FROM passengerride WHERE creatorId = ${creatorId} AND title = "${title}"`
+    runQuery(checkQuery, (result) => {
+        if (result) {
+            return res.status(400).json({
+                message: "Passenger ride with the same title already exists under creator's name",
+                type: "error"
+            });
+        } else {
+            const stopsJSON = stops ? JSON.stringify(stops) : '[]';
 
-    const rideStatus = 'upcoming';
+            const requestsJSON = JSON.stringify([creatorId]);
 
-    let query = `
-        INSERT INTO passengerride
-        (
-            creatorId,
-            date,
-            description,
-            difficulty,
-            startLocation,
-            finishLocation,
-            startLat,
-            startLng,
-            endLat,
-            endLng,
-            rideDistance,
-            rideType,
-            rideTime,
-            stops,
-            title,
-            organizer,
-            status
-        ) VALUES (
-        ${creatorId},
-        '${date}',
-        '${description}',
-        '${difficulty}',
-        '${startLocation}',
-        '${finishLocation}',
-        '${startLat}',
-        '${startLng}',
-        '${endLat}',
-        '${endLng}',
-        '${rideDistance}',
-        '${rideType}',
-        '${rideTime}',
-        '${stopsJSON}',
-        '${title}',
-        '${organizer}',
-        '${rideStatus}'
-        )
-    `;
+            const rideStatus = 'upcoming';
 
-    runQuery(query, (result) => {
-        res.status(200).json({ message: "Ride created successfully", status: "200 OK" });
+            let query = `
+                INSERT INTO passengerride
+                (
+                    creatorId,
+                    date,
+                    description,
+                    difficulty,
+                    startLocation,
+                    finishLocation,
+                    startLat,
+                    startLng,
+                    endLat,
+                    endLng,
+                    rideDistance,
+                    rideType,
+                    rideTime,
+                    stops,
+                    title,
+                    organizer,
+                    status,
+                    requests
+                ) VALUES (
+                ${creatorId},
+                '${date}',
+                '${description}',
+                '${difficulty}',
+                '${startLocation}',
+                '${finishLocation}',
+                '${startLat}',
+                '${startLng}',
+                '${endLat}',
+                '${endLng}',
+                '${rideDistance}',
+                '${rideType}',
+                '${rideTime}',
+                '${stopsJSON}',
+                '${title}',
+                '${organizer}',
+                '${rideStatus}',
+                '${requestsJSON}'
+                )`;
+
+            runQuery(query, (result) => {
+                res.status(200).json({ message: "Ride created successfully", status: "200 OK" });
+            });
+        }
     });
-};
+}
 
 
 // JOIN RIDE
-// METHOD: Create array (line 123), push JSON Objects into it, place back into database
 exports.joinPRide = (req, res) => {
     const { rideId, userId } = req.body;
 
@@ -117,10 +131,11 @@ exports.joinPRide = (req, res) => {
         return res.status(400).json({ message: "Missing rideId or userId" });
     }
 
-    let query = `SELECT pr.id, u.id, requests FROM passengerride pr, user u WHERE pr.id = ${rideId} AND u.id = ${userId}`;
+    let query = `SELECT id, requests FROM passengerride WHERE id = ${rideId}`;
 
     runQuery(query, (result) => {
-        let requests = result.length === 0 ? [] : result[0].requests;
+        if (!result) return res.status(404).json({ message: "Ride not found" });
+        let requests = result.requests ? result.requests : [];
 
         if (typeof requests === 'string') {
             try {
@@ -130,22 +145,22 @@ exports.joinPRide = (req, res) => {
             }
         }
 
-        requests = Array.isArray(requests) ? requests : []
+        requests = Array.isArray(requests) ? JSON.parse(requests) : [];
+        console.log(requests)
 
-        requests = requests.map(u => String(u));
+        //requests = requests.map(u => String(u));
 
         if (userId in requests) {
             return res.status(400).json({ message: "User already joined" });
         }
 
         requests.push(userId);
-        console.log(requests)
 
-        let query = `UPDATE passengerRide SET requests = ${JSON.stringify(requests)} WHERE passengerRide.id = ${rideId}`;
+        let query = `UPDATE passengerRide SET requests = "${JSON.stringify(requests)}" WHERE passengerRide.id = ${rideId}`;
         runQuery(query, (result) => {
             return res.status(200).json({
                 message: "Joined successfully",
-                userData: userObj
+                requests: requests
             });
         });
     });

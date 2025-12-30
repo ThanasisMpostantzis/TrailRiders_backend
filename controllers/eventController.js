@@ -1,3 +1,5 @@
+// TBI; OBSOLETE
+
 'use strict';
 
 const { runQuery } = require('../config/databaseCon');
