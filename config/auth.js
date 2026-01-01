@@ -11,7 +11,6 @@ router.get('/', (req, res) => {
 });
 
 router.post('/token', tokenCheck);
-//router.post('/subscribed');
 router.post('/login', login);
 router.post('/signup', signup)
 router.post('/forgotPassword', forgotpwd);

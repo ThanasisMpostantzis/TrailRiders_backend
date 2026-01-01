@@ -18,6 +18,7 @@ const forgotPasswordRouter = require('./routes/forgotPassword.js');
 const eventRouter = require('./routes/event.js');
 const ridesRoutes = require('./routes/rides.js');
 const passengerRidesRoutes = require('./routes/passengerRides.js');
+const subscription = require('./routes/subscription.js');
 
 
 // APP CONFIG
@@ -36,6 +37,7 @@ app.use('/forgotPassword', forgotPasswordRouter);
 app.use('/event', eventRouter);
 app.use('/rides', ridesRoutes);
 app.use('/passengerRides', passengerRidesRoutes);
+app.use('/subscription', subscription);
 
 
 // APP SERVER

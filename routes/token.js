@@ -49,25 +49,20 @@ const tokenCheck = async (req, res) => {
 };
 
 
-const fetch = () => {
-    let accToken = req.cookie.accToken;
+const fetch = async (req, res) => {
+    let accToken;
 
-    if (accToken) {
-        verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-            if (!err) {
-                flag = true;
-                return res.status(401).json({
-                    message: "User already logged in",
-                    status: "error"
-                });
-            } else {
-                return res.status(200).json({
-                    id: user.id,
-                    username: user.username
-                });
-            }
-        });
-    } else return;
+    try {
+        accToken = req.cookies.accToken;
+    } catch {
+        return null
+    }
+
+    let ver = verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+        if (!err) return user
+    });
+    
+    return ver;
 }
 
 module.exports = { tokenCheck, fetch };
