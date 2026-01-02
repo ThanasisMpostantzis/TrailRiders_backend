@@ -6,7 +6,11 @@ const { authenticateToken } = require('../utils/tokens');
 router.get('/', authenticateToken, (req, res) => {
     res.status(200).json({
         message: "Logged in",
-        type: "success"
+        type: "success",
+        user: {
+            id: req.user.id,
+            username: req.user.username
+        }
     });
 });
 

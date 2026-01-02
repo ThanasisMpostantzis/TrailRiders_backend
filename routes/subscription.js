@@ -2,9 +2,10 @@
 
 const express = require('express');
 const router = express.Router();
-const { check, renew } = require('../controllers/subscriptionController');
+const { check, start, update } = require('../controllers/subscriptionController');
 
 router.post('/check', check);
-router.post('/renew', renew);
+router.post('/start', start);
+router.post('/update', update);
 
 module.exports = router;

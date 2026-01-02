@@ -2,7 +2,7 @@ const nodeMailer = require('nodemailer')
 
 
 // CONFIG
-const createPasswordResetUrl = (id, token) => `http://localhost:${process.env.PORT || 8000}/auth/resetPassword/${token}`
+const createPasswordResetUrl = (id, token) => `http://localhost:${process.env.PORT || 8000}/auth/resetPassword/?token=${token}`
 
 const transporter = nodeMailer.createTransport({
     host: 'smtp.gmail.com',

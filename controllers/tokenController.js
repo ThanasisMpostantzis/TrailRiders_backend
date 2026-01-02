@@ -1,12 +1,35 @@
-const { verify, decode } = require('jsonwebtoken');
+const { verify } = require('jsonwebtoken');
 
-const { createAccessToken } = require('../utils/tokens');
+const { createAccessToken, createSubscriptionToken } = require('../utils/tokens');
 
 const tokenCheck = async (req, res) => {
+    const { accToken } = req.cookies;
+    const { subGen } = req.query;
+    let user;
+    if (subGen) {
+        if (!accToken) {
+            return res.status(401).json({
+            message: "User logged out. Refresh access token",
+            type: "401"
+            });
+        } else {
+            user = verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+                return {
+                    id: user.id,
+                    username: user.username
+                };
+            });
+        }
+
+        const subToken = createSubscriptionToken(user);
+        return res.status(200).json({
+            subToken: subToken
+        });
+    }
+
     // Check for access token
-    const accToken = req.cookies.accToken;
     if (accToken) {
-        const user = decode(accToken);
+        const user = verify(accToken, process.env.ACCESS_TOKEN_SECRET);
         return res.status(401).json({
             message: "User already logged in",
             user: {
@@ -17,7 +40,7 @@ const tokenCheck = async (req, res) => {
     }
     
     // Check for refresh token
-    const refToken = req.cookies.refToken;
+    const { refToken } = req.cookies;
     if (!refToken) return res.status(404).json({
         message: "User hasn't logged in in a looooong time (death row)",
         type: "error"
@@ -39,7 +62,7 @@ const tokenCheck = async (req, res) => {
             httpOnly: true,
             secure: true,
             sameSite: "strict",
-            maxAge: 60 * 1000 // 1 min
+            maxAge: 10 * 60 * 1000 // 10 min
         });
 
         return res.status(200).json({
@@ -48,21 +71,4 @@ const tokenCheck = async (req, res) => {
     });
 };
 
-
-const fetch = async (req, res) => {
-    let accToken;
-
-    try {
-        accToken = req.cookies.accToken;
-    } catch {
-        return null
-    }
-
-    let ver = verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-        if (!err) return user
-    });
-    
-    return ver;
-}
-
-module.exports = { tokenCheck, fetch };
+module.exports = { tokenCheck };

@@ -3,26 +3,32 @@ const { sign, verify } = require('jsonwebtoken');
 
 // Make sure the cookie & token expiration time are the same duration (authController.js > login())
 
-const createRefreshToken = (user) => {
-    return sign(user, process.env.REFRESH_TOKEN_SECRET, {
+const createRefreshToken = (payload) => {
+    return sign(payload, process.env.REFRESH_TOKEN_SECRET, {
+        expiresIn: "15m"
+    });
+}
+
+const createAccessToken = (payload) => {
+    return sign(payload, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "10m"
     });
 }
 
-const createAccessToken = (user) => {
-    return sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "1m"
-    });
-}
-
-const createPasswordResetToken = (user) => {
-    return sign(user, process.env.FORGOT_PASSWORD_TOKEN_SECRET, {
+const createPasswordResetToken = (payload) => {
+    return sign(payload, process.env.FORGOT_PASSWORD_TOKEN_SECRET, {
         expiresIn: "5m"
     });
 };
 
+const createSubscriptionToken = (payload) => {
+    return sign(payload, process.env.SUBSCRIPTION_TOKEN_SECRET, {
+        expiresIn: "10m"
+    });
+};
 
-// NO TOUCHY
+
+// MIDDLEWARE FOR VERIFYING USER ACCESS TOKENS
 function authenticateToken(req, res, next) {
     const accToken = req.cookies.accToken;
 
@@ -30,7 +36,7 @@ function authenticateToken(req, res, next) {
         verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
             if (err) return res.status(403).json({
                 message: "Invalid Token",
-                type: "forbidden"
+                type: "403 Access Forbidden"
             });
 
             req.user = user;
@@ -39,7 +45,7 @@ function authenticateToken(req, res, next) {
     } else {
         return res.status(401).json({
             message: "Token not found",
-            type: "unauthorized access"
+            type: "401 Unauthorized Access"
         });
     }
 }
@@ -48,5 +54,6 @@ module.exports = {
     createPasswordResetToken,
     createAccessToken,
     authenticateToken,
-    createRefreshToken
+    createRefreshToken,
+    createSubscriptionToken
 };

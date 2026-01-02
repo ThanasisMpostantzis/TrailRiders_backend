@@ -38,7 +38,7 @@ const login = async (req, res) => {
                         httpOnly: true,
                         secure: true,
                         sameSite: "strict",
-                        maxAge: 60 * 1000 // 1 min
+                        maxAge: 10 * 60 * 1000 // 10 min
                     });
                 } else {
                     return res.status(401).json({
@@ -50,7 +50,7 @@ const login = async (req, res) => {
                     httpOnly: true,
                     secure: true,
                     sameSite: "strict",
-                    maxAge: 10 * 60 * 1000 // 10 min
+                    maxAge: 15 * 60 * 1000 // 10 min
                 });
 
                 return res.status(200).json({
@@ -151,11 +151,12 @@ const forgotpwd = async (req, res) => {
 
 const resetpwd = (req, res) => {
     const { newPass, repeatNewPass } = req.body;
-    const { token } = req.params;
+    const { token } = req.query;
     
     // Token verification (check if expired)
+    let user;
     try {
-        verify(token, process.env.FORGOT_PASSWORD_TOKEN_SECRET);
+        user = verify(token, process.env.FORGOT_PASSWORD_TOKEN_SECRET);
     } catch {
         return res.status(401).json({
             message: "Invalid or expired token",
@@ -170,7 +171,6 @@ const resetpwd = (req, res) => {
         });
     }
 
-    const user = decode(token);
     let query = `SELECT username, password, email FROM user WHERE id = ${user.id}`;
 
     runQuery(query, async (result) => {
