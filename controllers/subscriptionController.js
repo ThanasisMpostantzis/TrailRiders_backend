@@ -120,6 +120,9 @@ const start = async (req, res) => {
 }
 
 // UPDATE USER SUBSCRIPTION
+// Note: A user with IQ over 1000 may copy the authentication token from start() and paste it into the URL/path of update(),
+// granting themselves free extra subscription plans. For this, we will implement a delay between starting the subscription,
+// and setting the 'subscribed' column to 1 for the user. Delay will be slightly longer than the expiration time of the token.
 const update = (req, res) => {
     const { plan } = req.body; // SUBSCRIPTION PLAN (1 MONTH, 3 MONTHS ETC.)
     const { subToken } = req.query;

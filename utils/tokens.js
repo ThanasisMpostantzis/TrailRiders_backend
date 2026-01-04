@@ -23,7 +23,7 @@ const createPasswordResetToken = (payload) => {
 
 const createSubscriptionToken = (payload) => {
     return sign(payload, process.env.SUBSCRIPTION_TOKEN_SECRET, {
-        expiresIn: "10m"
+        expiresIn: "10m" // DEV. WILL OBVIOUSLY CHANGE
     });
 };
 
