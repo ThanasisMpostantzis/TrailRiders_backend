@@ -5,7 +5,7 @@ const { sign, verify } = require('jsonwebtoken');
 
 const createRefreshToken = (payload) => {
     return sign(payload, process.env.REFRESH_TOKEN_SECRET, {
-        expiresIn: "15m"
+        expiresIn: "20m"
     });
 }
 

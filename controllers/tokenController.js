@@ -6,21 +6,22 @@ const tokenCheck = async (req, res) => {
     const { accToken } = req.cookies;
     const { subGen } = req.query;
     let user;
-    if (subGen) {
-        if (!accToken) {
-            return res.status(401).json({
-            message: "User logged out. Refresh access token",
-            type: "401"
-            });
-        } else {
-            user = verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-                return {
-                    id: user.id,
-                    username: user.username
-                };
-            });
-        }
+    if (!accToken) {
+        return res.status(401).json({
+        message: "User logged out. Refresh access token",
+        type: "401"
+        });
+    } else {
+        user = verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+            return {
+                id: user.id,
+                username: user.username,
+                subGen: subGen
+            };
+        });
+    }
 
+    if (subGen != null && subGen != undefined) {
         const subToken = createSubscriptionToken(user);
         return res.status(200).json({
             subToken: subToken
