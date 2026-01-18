@@ -1,4 +1,4 @@
-const { sign, verify } = require('jsonwebtoken');
+const { sign } = require('jsonwebtoken');
 
 
 // Make sure the cookie & token expiration time are the same duration (authController.js > login())
@@ -27,33 +27,20 @@ const createSubscriptionToken = (payload) => {
     });
 };
 
+const createCompanyEventToken = (payload) => {
+    return sign(payload, process.env.COMPANY_EVENT_TOKEN_SECRET, {
+        expiresIn: "10m"
+    });
+}
+
 
 // MIDDLEWARE FOR VERIFYING USER ACCESS TOKENS
-function authenticateToken(req, res, next) {
-    const accToken = req.cookies.accToken;
 
-    if (accToken) {
-        verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-            if (err) return res.status(403).json({
-                message: "Invalid Token",
-                type: "403 Access Forbidden"
-            });
-
-            req.user = user;
-            next();
-        });
-    } else {
-        return res.status(401).json({
-            message: "Token not found",
-            type: "401 Unauthorized Access"
-        });
-    }
-}
 
 module.exports = {
     createPasswordResetToken,
     createAccessToken,
-    authenticateToken,
     createRefreshToken,
-    createSubscriptionToken
+    createSubscriptionToken,
+    createCompanyEventToken
 };

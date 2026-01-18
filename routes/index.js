@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 
-const { authenticateToken } = require('../utils/tokens');
+const { authenticateUserToken } = require('../middlewares/userAuthToken.js');
 
-router.get('/', authenticateToken, (req, res) => {
+router.get('/', authenticateUserToken, (req, res) => {
     res.status(200).json({
         message: "Logged in",
         type: "success",

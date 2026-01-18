@@ -18,6 +18,8 @@ const eventRouter = require('./routes/event.js');
 const ridesRoutes = require('./routes/rides.js');
 const passengerRidesRoutes = require('./routes/passengerRides.js');
 const subscription = require('./routes/subscription.js');
+const companyEvents = require('./routes/companyEvents.js');
+const compEvAuthToken = require('./middlewares/compEvAuthToken.js')
 
 
 // APP CONFIG
@@ -36,6 +38,8 @@ app.use('/event', eventRouter);
 app.use('/rides', ridesRoutes);
 app.use('/passengerRides', passengerRidesRoutes);
 app.use('/subscription', subscription);
+app.all('/companyEvents/*', compEvAuthToken);
+app.use('/companyEvents', companyEvents);
 
 
 // APP SERVER
