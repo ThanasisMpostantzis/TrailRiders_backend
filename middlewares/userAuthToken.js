@@ -1,6 +1,6 @@
 const { verify } = require('jsonwebtoken');
 
-module.exports = async function authenticateUserToken(req, res, next) {
+async function authenticateUserToken(req, res, next) {
     const accToken = req.cookies.accToken;
 
     if (accToken) {
@@ -20,3 +20,5 @@ module.exports = async function authenticateUserToken(req, res, next) {
         });
     }
 }
+
+module.exports = authenticateUserToken
