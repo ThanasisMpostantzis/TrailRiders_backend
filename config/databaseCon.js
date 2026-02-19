@@ -1,4 +1,4 @@
-const mysql = require('mysql');
+const mysql = require('mysql2');
 
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
@@ -8,7 +8,7 @@ const pool = mysql.createPool({
     database: process.env.DB,
     dateStrings: true,
     charset: 'utf8mb4',
-    timezone: 'utc',
+    timezone: 'Z',
     multipleStatements: true,
     timeout: 5000
 });

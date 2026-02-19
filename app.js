@@ -38,7 +38,7 @@ app.use('/event', eventRouter);
 app.use('/rides', ridesRoutes);
 app.use('/passengerRides', passengerRidesRoutes);
 app.use('/subscription', subscription);
-app.all('/companyEvents/*', compEvAuthToken);
+app.all('/companyEvents/1', compEvAuthToken);
 app.use('/companyEvents', companyEvents);
 
 
