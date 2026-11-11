@@ -357,6 +357,30 @@ const deleteUser = async (req, res) => {
         await query('DELETE FROM messages WHERE senderId = ? OR receiverId = ?', [userId, userId]);
         await query('DELETE FROM follows WHERE followerId = ? OR followingId = ?', [userId, userId]);
         await query('DELETE FROM blocks WHERE blockerId = ? OR blockedId = ?', [userId, userId]);
+        // Feed, recordings, route library, marketplace
+        const ownPosts = await query('SELECT id FROM posts WHERE userId = ?', [userId]);
+        if (ownPosts.length) {
+            const ids = ownPosts.map((p) => p.id);
+            await query('DELETE FROM post_likes WHERE postId IN (?)', [ids]);
+            await query('DELETE FROM post_comments WHERE postId IN (?)', [ids]);
+        }
+        await query('DELETE FROM posts WHERE userId = ?', [userId]);
+        await query('DELETE FROM post_likes WHERE userId = ?', [userId]);
+        await query('DELETE FROM post_comments WHERE userId = ?', [userId]);
+        await query('DELETE FROM tracks WHERE userId = ?', [userId]);
+        const ownRoutes = await query('SELECT id FROM route_library WHERE userId = ?', [userId]);
+        if (ownRoutes.length) {
+            const ids = ownRoutes.map((r) => r.id);
+            await query('DELETE FROM route_ratings WHERE routeId IN (?)', [ids]);
+            await query('DELETE FROM route_favorites WHERE routeId IN (?)', [ids]);
+        }
+        await query('DELETE FROM route_library WHERE userId = ?', [userId]);
+        await query('DELETE FROM route_ratings WHERE userId = ?', [userId]);
+        await query('DELETE FROM route_favorites WHERE userId = ?', [userId]);
+        const ownListings = await query('SELECT id FROM listings WHERE userId = ?', [userId]);
+        if (ownListings.length) await query('DELETE FROM listing_favorites WHERE listingId IN (?)', [ownListings.map((l) => l.id)]);
+        await query('DELETE FROM listings WHERE userId = ?', [userId]);
+        await query('DELETE FROM listing_favorites WHERE userId = ?', [userId]);
         await query('DELETE FROM user WHERE id = ?', [userId]);
 
         res.clearCookie('accToken');

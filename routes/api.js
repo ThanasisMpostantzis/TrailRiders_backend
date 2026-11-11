@@ -8,7 +8,7 @@ const authenticateUserToken = require('../middlewares/userAuthToken.js');
 const optionalAuth = require('../middlewares/optionalAuth.js');
 const { checkHostingLimit, FREE_ACTIVE_LIMIT } = require('../utils/social');
 const { PUBLIC_USER_FIELDS } = require('../controllers/authController');
-const { formatRide } = require('../controllers/ridesController');
+const { formatRideRaw } = require('../controllers/ridesController');
 
 router.get('/', (req, res) => {
     res.send("<h1>API works</h1>");
@@ -21,7 +21,7 @@ async function loadProfile(userId) {
     const rides = (await query(
         'SELECT * FROM rides WHERE creator_id = ? OR usersId LIKE ?',
         [userId, `%"${userId}"%`]
-    )).map(formatRide).filter((r) => r.creatorId === Number(userId) || r.participants.includes(String(userId)));
+    )).map(formatRideRaw).filter((r) => r.creatorId === Number(userId) || r.participants.includes(String(userId)));
 
     const today = new Date().toISOString().slice(0, 10);
     const done = rides.filter((r) => r.date && r.date < today);
@@ -52,13 +52,46 @@ async function loadProfile(userId) {
     return user;
 }
 
+// Emergency (ICE) info — private: only ever returned to the user themself (/api/me, updateProfile)
+const ICE_FIELDS = ['bloodType', 'allergies', 'medicalNotes', 'emergencyName', 'emergencyPhone'];
+const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const ICE_LIMITS = { allergies: 255, medicalNotes: 500, emergencyName: 100, emergencyPhone: 30 };
+
+/** The logged-in user's own profile: public profile + hosting info + emergency info */
+async function loadOwnProfile(userId) {
+    const user = await loadProfile(userId);
+    if (!user) return null;
+    user.canHost = !(await checkHostingLimit(userId));
+    user.freeHostingLimit = FREE_ACTIVE_LIMIT;
+    const ice = await queryOne(`SELECT ${ICE_FIELDS.join(', ')} FROM user WHERE id = ?`, [userId]);
+    for (const f of ICE_FIELDS) user[f] = ice ? ice[f] ?? null : null;
+    return user;
+}
+
+/** Validates ICE fields in a profile update. Returns an error message or null; fills `updates`. */
+function readIceFields(body, updates) {
+    if (body.bloodType !== undefined) {
+        const bt = String(body.bloodType || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (bt && !BLOOD_TYPES.includes(bt)) return `bloodType must be one of ${BLOOD_TYPES.join(', ')}`;
+        updates.bloodType = bt || null;
+    }
+    for (const [field, max] of Object.entries(ICE_LIMITS)) {
+        if (body[field] === undefined) continue;
+        const value = String(body[field] || '').trim();
+        if (value.length > max) return `${field} is too long (max ${max})`;
+        updates[field] = value || null;
+    }
+    if (updates.emergencyPhone && !/^\+?[0-9 ()\-.]{3,30}$/.test(updates.emergencyPhone)) {
+        return "Please enter a valid emergency phone number";
+    }
+    return null;
+}
+
 // --- CURRENT USER ---
 router.get('/me', authenticateUserToken, async (req, res) => {
     try {
-        const user = await loadProfile(req.user.id);
+        const user = await loadOwnProfile(req.user.id);
         if (!user) return res.status(404).json({ message: "User not found", type: "error" });
-        user.canHost = !(await checkHostingLimit(req.user.id));
-        user.freeHostingLimit = FREE_ACTIVE_LIMIT;
         res.status(200).json(user);
     } catch (err) {
         console.error('[API] me', err);
@@ -122,6 +155,8 @@ router.post('/user/updateProfile', authenticateUserToken, async (req, res) => {
         if (body.tags !== undefined) updates.tags = (Array.isArray(body.tags) ? body.tags.join(',') : String(body.tags || '')) || null;
         if (body.image !== undefined) updates.image = body.image || null;
         if (body.cover !== undefined) updates.cover = body.cover || null;
+        const iceError = readIceFields(body, updates);
+        if (iceError) return res.status(400).json({ message: iceError, type: "error" });
 
         const entries = Object.entries(updates);
         if (entries.length) {
@@ -132,7 +167,7 @@ router.post('/user/updateProfile', authenticateUserToken, async (req, res) => {
             // Keep the organizer name on rides in sync is not needed: rides store the username, which cannot change.
         }
 
-        const user = await loadProfile(req.user.id);
+        const user = await loadOwnProfile(req.user.id);
         res.json({ type: "success", message: "Profile updated", user });
     } catch (err) {
         console.error("[API] Update Error:", err);

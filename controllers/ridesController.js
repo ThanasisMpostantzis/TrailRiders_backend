@@ -1,8 +1,10 @@
 'use strict';
 
+const crypto = require('crypto');
 const { query, queryOne } = require('../config/databaseCon.js');
 const { notify } = require('../utils/notify');
 const { checkHostingLimit, notifyFollowers, blockedIds } = require('../utils/social');
+const { geocodeRideLater } = require('../utils/geocode');
 
 // ---------- helpers ----------
 
@@ -17,12 +19,13 @@ const parseJSONList = (value) => {
     }
 };
 
-// Shapes a DB row into what the app expects
-const formatRide = (row) => {
+// Shapes a DB row into what the app expects (full details, never the access code)
+const formatRideRaw = (row) => {
     const participants = parseJSONList(row.usersId).map(String);
-    const { usersId, ...rest } = row;
+    const { usersId, accessCode, ...rest } = row;
     return {
         ...rest,
+        visibility: row.visibility === 'private' ? 'private' : 'public',
         creatorId: row.creator_id,
         rideTime: row.ride_time,
         stops: parseJSONList(row.stops),
@@ -30,6 +33,71 @@ const formatRide = (row) => {
         participantsCount: participants.length,
     };
 };
+
+/**
+ * What a given viewer may see of a ride.
+ * - the owner also gets `accessCode` (private rides)
+ * - private rides are redacted (`locked: true`) for anyone who is not the owner or a participant:
+ *   no stops, description, meeting time, participant list or reviews.
+ * @param {object} row DB row
+ * @param {number|string|null} viewerId logged-in user id (or null)
+ */
+const presentRide = (row, viewerId) => {
+    const ride = formatRideRaw(row);
+    const viewer = viewerId === undefined || viewerId === null ? '' : String(viewerId);
+    const isOwner = !!viewer && String(row.creator_id) === viewer;
+    const isMember = isOwner || (!!viewer && ride.participants.includes(viewer));
+
+    if (ride.visibility === 'private' && isOwner) ride.accessCode = row.accessCode || null;
+    ride.locked = ride.visibility === 'private' && !isMember;
+    if (ride.locked) {
+        ride.stops = [];
+        ride.description = '';
+        ride.ride_time = null;
+        ride.rideTime = null;
+        ride.participants = [];
+    }
+    return ride;
+};
+
+// Public formatter (used by other routes, e.g. the follow feed). A second argument that is not an
+// object (e.g. Array.map's index) is ignored, so callers without a viewer get the redacted version.
+const formatRide = (row, opts) => presentRide(row, opts && typeof opts === 'object' ? opts.viewerId : null);
+
+const isRideMember = (row, userId) =>
+    !!userId && (String(row.creator_id) === String(userId) || parseJSONList(row.usersId).map(String).includes(String(userId)));
+
+// ---------- private rides: access codes ----------
+
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I to avoid typos
+const generateAccessCode = () =>
+    Array.from({ length: 6 }, () => CODE_ALPHABET[crypto.randomInt(CODE_ALPHABET.length)]).join('');
+const normaliseCode = (code) => String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+function codesMatch(given, expected) {
+    const a = Buffer.from(normaliseCode(given));
+    const b = Buffer.from(normaliseCode(expected));
+    return a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b);
+}
+
+// Wrong code attempts: max 5 per user per ride and 20 per user overall, per 15 minutes.
+const CODE_WINDOW_MS = 15 * 60 * 1000;
+const codeFailures = new Map(); // key -> { count, resetAt }
+setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of codeFailures) if (v.resetAt <= now) codeFailures.delete(k);
+}, CODE_WINDOW_MS).unref();
+
+function failureCount(key) {
+    const e = codeFailures.get(key);
+    return e && e.resetAt > Date.now() ? e.count : 0;
+}
+function addFailure(key) {
+    const now = Date.now();
+    const e = codeFailures.get(key);
+    if (!e || e.resetAt <= now) codeFailures.set(key, { count: 1, resetAt: now + CODE_WINDOW_MS });
+    else e.count += 1;
+}
 
 const toNumberOrNull = (v) => {
     if (v === undefined || v === null || v === '') return null;
@@ -59,6 +127,14 @@ function validateRide(body, partial = false) {
     }
     if (!partial && !body.date) return 'date is required';
     if (body.rideTime && !/^\d{1,2}:\d{2}$/.test(body.rideTime)) return 'time must be in HH:MM format';
+    if (body.visibility !== undefined && body.visibility !== null && !['public', 'private'].includes(body.visibility)) {
+        return "visibility must be 'public' or 'private'";
+    }
+    for (const [lat, lng] of [['startLat', 'startLng'], ['endLat', 'endLng']]) {
+        const la = toNumberOrNull(body[lat]);
+        const ln = toNumberOrNull(body[lng]);
+        if ((la !== null && (la < -90 || la > 90)) || (ln !== null && (ln < -180 || ln > 180))) return `${lat}/${lng} are not valid coordinates`;
+    }
     return null;
 }
 
@@ -92,7 +168,8 @@ exports.getAllRides = async (req, res) => {
                      FROM rides r LEFT JOIN user u ON u.id = r.creator_id
                      ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date ASC, ride_time ASC`;
         const rows = await query(sql, params);
-        res.status(200).json(rows.map((row) => ({ ...formatRide(row), creatorPremium: !!row.creatorPremium })));
+        const viewerId = req.user ? req.user.id : null;
+        res.status(200).json(rows.map((row) => ({ ...presentRide(row, viewerId), creatorPremium: !!row.creatorPremium })));
     } catch (err) {
         console.error('[rides/getAll]', err);
         res.status(500).json({ message: "Server error", type: "error" });
@@ -106,7 +183,7 @@ exports.getRideById = async (req, res) => {
         const row = await getRideRow(req.params.id);
         if (!row) return res.status(404).json({ message: "Ride not found", type: "error" });
 
-        const ride = formatRide(row);
+        const ride = presentRide(row, req.user ? req.user.id : null);
         const ids = ride.participants.map(Number).filter(Boolean);
         const users = ids.length
             ? await query('SELECT id, username, fullName, image, bike, subscribed FROM user WHERE id IN (?)', [ids])
@@ -122,7 +199,8 @@ exports.getRideById = async (req, res) => {
              FROM ride_ratings rr LEFT JOIN user u ON u.id = rr.userId WHERE rr.rideId = ? ORDER BY rr.createdAt DESC`,
             [row.id]
         );
-        ride.ratings = ratings;
+        // locked private ride: keep the average, hide who reviewed and what they wrote
+        ride.ratings = ride.locked ? [] : ratings;
         ride.ratingsCount = ratings.length;
         ride.avgRating = ratings.length ? Math.round((ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length) * 10) / 10 : null;
 
@@ -145,11 +223,20 @@ exports.createRide = async (req, res) => {
         if (limit) return res.status(403).json(limit);
 
         const creatorId = req.user.id;
+        const visibility = body.visibility === 'private' ? 'private' : 'public';
+        const accessCode = visibility === 'private' ? generateAccessCode() : null;
+        const startLat = toNumberOrNull(body.startLat);
+        const startLng = toNumberOrNull(body.startLng);
+        const endLat = toNumberOrNull(body.endLat);
+        const endLng = toNumberOrNull(body.endLng);
+        const hasStart = startLat !== null && startLng !== null;
+        const hasEnd = endLat !== null && endLng !== null;
         const result = await query(
             `INSERT INTO rides
             (creator_id, organizer, title, image, rideDistance, startLocation, finishLocation, date, ride_time, status,
-             category, description, stops, difficulty, rideType, expectedTime, startLat, startLng, endLat, endLng, usersId)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'upcoming', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             category, description, stops, difficulty, rideType, expectedTime, startLat, startLng, endLat, endLng, usersId,
+             visibility, accessCode)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'upcoming', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 creatorId,
                 req.user.username,
@@ -166,21 +253,38 @@ exports.createRide = async (req, res) => {
                 body.difficulty || 'Medium',
                 body.rideType || 'Motorcycle',
                 body.expectedTime || null,
-                toNumberOrNull(body.startLat),
-                toNumberOrNull(body.startLng),
-                toNumberOrNull(body.endLat),
-                toNumberOrNull(body.endLng),
+                hasStart ? startLat : null,
+                hasStart ? startLng : null,
+                hasEnd ? endLat : null,
+                hasEnd ? endLng : null,
                 JSON.stringify([String(creatorId)]),
+                visibility,
+                accessCode,
             ]
         );
         await query('UPDATE user SET rides = COALESCE(rides, 0) + 1 WHERE id = ?', [creatorId]);
-        await notifyFollowers(req.user, {
-            subject: 'New ride from someone you follow',
-            description: `${req.user.username} is organizing "${body.title.trim()}" on ${body.date}.`,
-            rideId: result.insertId,
+        // Private rides are not advertised to followers
+        if (visibility === 'public') {
+            await notifyFollowers(req.user, {
+                subject: 'New ride from someone you follow',
+                description: `${req.user.username} is organizing "${body.title.trim()}" on ${body.date}.`,
+                rideId: result.insertId,
+            });
+        }
+
+        // Fill missing coordinates in the background (does not delay the response)
+        geocodeRideLater(result.insertId, {
+            start: hasStart ? null : body.startLocation.trim(),
+            finish: hasEnd ? null : body.finishLocation.trim(),
         });
 
-        res.status(201).json({ message: "Ride created successfully", type: "success", rideId: result.insertId });
+        res.status(201).json({
+            message: "Ride created successfully",
+            type: "success",
+            rideId: result.insertId,
+            visibility,
+            ...(accessCode ? { accessCode } : {}),
+        });
     } catch (err) {
         console.error('[rides/create]', err);
         res.status(500).json({ message: "Server error", type: "error" });
@@ -215,6 +319,43 @@ exports.updateRide = async (req, res) => {
             rideType: body.rideType,
             expectedTime: body.expectedTime,
         };
+
+        // Visibility: switching to private creates a code (keeps an existing one); public removes it
+        if (body.visibility === 'private' && (row.visibility !== 'private' || !row.accessCode)) {
+            columns.visibility = 'private';
+            columns.accessCode = generateAccessCode();
+        } else if (body.visibility === 'public' && row.visibility !== 'public') {
+            columns.visibility = 'public';
+            columns.accessCode = null;
+        }
+
+        // Coordinates: use the client's (e.g. "Use my location"), otherwise re-geocode when the place changed
+        const toGeocode = {};
+        const ends = [
+            ['start', 'startLocation', 'startLat', 'startLng'],
+            ['finish', 'finishLocation', 'endLat', 'endLng'],
+        ];
+        for (const [key, placeField, latField, lngField] of ends) {
+            const lat = toNumberOrNull(body[latField]);
+            const lng = toNumberOrNull(body[lngField]);
+            const place = body[placeField] !== undefined ? String(body[placeField]).trim() : row[placeField];
+            if (body[placeField] !== undefined) columns[placeField] = place;
+            if (lat !== null && lng !== null) {
+                columns[latField] = lat;
+                columns[lngField] = lng;
+                continue;
+            }
+            const placeChanged = body[placeField] !== undefined && place !== row[placeField];
+            const clearedByClient = body[latField] === null; // client dropped its coordinates
+            if (placeChanged || clearedByClient || (row[latField] === null && place)) {
+                if (placeChanged || clearedByClient) {
+                    columns[latField] = null;
+                    columns[lngField] = null;
+                }
+                if (place) toGeocode[key] = place;
+            }
+        }
+
         const entries = Object.entries(columns).filter(([, v]) => v !== undefined);
         if (!entries.length) return res.status(400).json({ message: "Nothing to update", type: "error" });
 
@@ -222,6 +363,7 @@ exports.updateRide = async (req, res) => {
             `UPDATE rides SET ${entries.map(([k]) => `${k} = ?`).join(', ')} WHERE id = ?`,
             [...entries.map(([, v]) => v), row.id]
         );
+        if (toGeocode.start || toGeocode.finish) geocodeRideLater(row.id, toGeocode);
 
         const others = parseJSONList(row.usersId).map(Number);
         await notify(others, {
@@ -232,7 +374,14 @@ exports.updateRide = async (req, res) => {
             rideId: row.id,
         });
 
-        res.status(200).json({ message: "Ride updated successfully", type: "success" });
+        const visibility = columns.visibility || (row.visibility === 'private' ? 'private' : 'public');
+        const accessCode = columns.accessCode !== undefined ? columns.accessCode : row.accessCode;
+        res.status(200).json({
+            message: "Ride updated successfully",
+            type: "success",
+            visibility,
+            ...(visibility === 'private' ? { accessCode } : {}),
+        });
     } catch (err) {
         console.error('[rides/update]', err);
         res.status(500).json({ message: "Server error", type: "error" });
@@ -283,6 +432,30 @@ exports.joinRide = async (req, res) => {
         }
         if (row.date && row.date < new Date().toISOString().slice(0, 10)) {
             return res.status(400).json({ message: "This ride has already taken place", type: "error" });
+        }
+
+        // Private ride: the organizer's access code is required
+        if (row.visibility === 'private' && String(row.creator_id) !== userId) {
+            const rideKey = `${userId}:${row.id}`;
+            const userKey = `${userId}:*`;
+            if (failureCount(rideKey) >= 5 || failureCount(userKey) >= 20) {
+                return res.status(429).json({ message: "Too many wrong codes. Please try again in 15 minutes.", type: "error", code: "TOO_MANY_ATTEMPTS" });
+            }
+            const code = (req.body || {}).code;
+            if (!normaliseCode(code)) {
+                return res.status(403).json({ message: "This is a private ride. Enter the access code from the organizer to join.", type: "error", code: "CODE_REQUIRED" });
+            }
+            if (!row.accessCode || !codesMatch(code, row.accessCode)) {
+                addFailure(rideKey);
+                addFailure(userKey);
+                const left = Math.max(0, 5 - failureCount(rideKey));
+                return res.status(403).json({
+                    message: left ? `Wrong access code. ${left} ${left === 1 ? 'attempt' : 'attempts'} left.` : "Wrong access code. Please try again in 15 minutes.",
+                    type: "error",
+                    code: "WRONG_CODE",
+                });
+            }
+            codeFailures.delete(rideKey);
         }
 
         participants.push(userId);
@@ -349,7 +522,10 @@ exports.getMyRides = async (req, res) => {
             'SELECT * FROM rides WHERE creator_id = ? OR usersId LIKE ? ORDER BY date ASC, ride_time ASC',
             [userId, `%"${userId}"%`]
         );
-        const rides = rows.map(formatRide).filter((r) => r.creatorId === userId || r.participants.includes(String(userId)));
+        // Owner and participants always see full details; the owner also gets the access code
+        const rides = rows
+            .filter((row) => isRideMember(row, userId))
+            .map((row) => presentRide(row, userId));
 
         res.status(200).json({
             created: rides.filter((r) => r.creatorId === userId),
@@ -365,6 +541,10 @@ exports.getMyRides = async (req, res) => {
 // 9. COMMENTS
 exports.getComments = async (req, res) => {
     try {
+        const ride = await getRideRow(req.params.id);
+        if (ride && ride.visibility === 'private' && !isRideMember(ride, req.user && req.user.id)) {
+            return res.status(403).json({ message: "Join this private ride to see the discussion", type: "error", locked: true });
+        }
         const rows = await query(
             `SELECT c.id, c.rideId, c.userId, c.text, c.createdAt, u.username, u.fullName, u.image
              FROM ride_comments c LEFT JOIN user u ON u.id = c.userId
@@ -386,6 +566,9 @@ exports.addComment = async (req, res) => {
     try {
         const row = await getRideRow(req.params.id);
         if (!row) return res.status(404).json({ message: "Ride not found", type: "error" });
+        if (row.visibility === 'private' && !isRideMember(row, req.user.id)) {
+            return res.status(403).json({ message: "Join this private ride to take part in the discussion", type: "error", locked: true });
+        }
 
         const result = await query('INSERT INTO ride_comments (rideId, userId, text) VALUES (?, ?, ?)', [row.id, req.user.id, text]);
 
@@ -465,5 +648,25 @@ exports.rateRide = async (req, res) => {
     }
 };
 
+// 11. NEW ACCESS CODE for a private ride (owner only). Old code stops working; current riders stay.
+exports.regenerateCode = async (req, res) => {
+    try {
+        const row = await getRideRow(req.params.id);
+        if (!row) return res.status(404).json({ message: "Ride not found", type: "error" });
+        if (row.creator_id !== req.user.id) return res.status(403).json({ message: "Only the organizer can change the code", type: "error" });
+        if (row.visibility !== 'private') return res.status(400).json({ message: "This ride is public — no code needed", type: "error" });
+
+        let accessCode = generateAccessCode();
+        while (accessCode === row.accessCode) accessCode = generateAccessCode();
+        await query('UPDATE rides SET accessCode = ? WHERE id = ?', [accessCode, row.id]);
+        res.status(200).json({ message: "New access code created", type: "success", accessCode });
+    } catch (err) {
+        console.error('[rides/regenerateCode]', err);
+        res.status(500).json({ message: "Server error", type: "error" });
+    }
+};
+
 exports.formatRide = formatRide;
+exports.formatRideRaw = formatRideRaw;
+exports.presentRide = presentRide;
 exports.parseJSONList = parseJSONList;

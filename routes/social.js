@@ -251,7 +251,7 @@ router.delete('/block/:userId', async (req, res) => {
 
 // ---------------- REPORTS ----------------
 
-const REPORT_TYPES = ['user', 'ride', 'event', 'passengerRide', 'comment', 'message'];
+const REPORT_TYPES = ['user', 'ride', 'event', 'passengerRide', 'comment', 'message', 'post', 'postComment', 'listing', 'route'];
 const REPORT_REASONS = ['spam', 'harassment', 'inappropriate', 'fake', 'dangerous', 'other'];
 
 router.post('/report', rateLimit({ windowMs: 60 * 60 * 1000, max: 20 }), async (req, res) => {

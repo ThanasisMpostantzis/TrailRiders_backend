@@ -103,6 +103,143 @@ const TABLES = [
         PRIMARY KEY (id),
         KEY idx_reports_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    // ---------- FEED (social posts) ----------
+    `CREATE TABLE IF NOT EXISTS posts (
+        id INT NOT NULL AUTO_INCREMENT,
+        userId INT NOT NULL,
+        text VARCHAR(2000) DEFAULT NULL,
+        images LONGTEXT,
+        category VARCHAR(40) DEFAULT NULL,
+        location VARCHAR(120) DEFAULT NULL,
+        rideId BIGINT DEFAULT NULL,
+        trackId INT DEFAULT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_posts_user (userId),
+        KEY idx_posts_created (createdAt)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    `CREATE TABLE IF NOT EXISTS post_likes (
+        postId INT NOT NULL,
+        userId INT NOT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (postId, userId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    `CREATE TABLE IF NOT EXISTS post_comments (
+        id INT NOT NULL AUTO_INCREMENT,
+        postId INT NOT NULL,
+        userId INT NOT NULL,
+        text VARCHAR(1000) NOT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_post_comments_post (postId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    // ---------- GPS ride recordings ----------
+    `CREATE TABLE IF NOT EXISTS tracks (
+        id INT NOT NULL AUTO_INCREMENT,
+        userId INT NOT NULL,
+        title VARCHAR(120) DEFAULT NULL,
+        startedAt DATETIME NOT NULL,
+        endedAt DATETIME NOT NULL,
+        durationSec INT NOT NULL DEFAULT 0,
+        movingSec INT NOT NULL DEFAULT 0,
+        distanceM DOUBLE NOT NULL DEFAULT 0,
+        maxSpeedKmh DOUBLE NOT NULL DEFAULT 0,
+        avgSpeedKmh DOUBLE NOT NULL DEFAULT 0,
+        maxLeanLeft DOUBLE DEFAULT NULL,
+        maxLeanRight DOUBLE DEFAULT NULL,
+        maxGForce DOUBLE DEFAULT NULL,
+        avgGForce DOUBLE DEFAULT NULL,
+        elevationGainM DOUBLE DEFAULT NULL,
+        maxAltitudeM DOUBLE DEFAULT NULL,
+        minAltitudeM DOUBLE DEFAULT NULL,
+        startName VARCHAR(120) DEFAULT NULL,
+        endName VARCHAR(120) DEFAULT NULL,
+        points LONGTEXT,
+        rideId BIGINT DEFAULT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_tracks_user (userId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    // ---------- Route library (best roads, shared by riders) ----------
+    `CREATE TABLE IF NOT EXISTS route_library (
+        id INT NOT NULL AUTO_INCREMENT,
+        userId INT NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        description TEXT,
+        region VARCHAR(80) DEFAULT NULL,
+        difficulty VARCHAR(20) DEFAULT NULL,
+        surface VARCHAR(30) DEFAULT NULL,
+        style VARCHAR(30) DEFAULT NULL,
+        distanceM DOUBLE NOT NULL DEFAULT 0,
+        durationSec INT DEFAULT NULL,
+        elevationGainM DOUBLE DEFAULT NULL,
+        startLat DOUBLE DEFAULT NULL,
+        startLng DOUBLE DEFAULT NULL,
+        endLat DOUBLE DEFAULT NULL,
+        endLng DOUBLE DEFAULT NULL,
+        startName VARCHAR(120) DEFAULT NULL,
+        endName VARCHAR(120) DEFAULT NULL,
+        points LONGTEXT,
+        image LONGTEXT,
+        trackId INT DEFAULT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_route_library_user (userId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    `CREATE TABLE IF NOT EXISTS route_ratings (
+        routeId INT NOT NULL,
+        userId INT NOT NULL,
+        rating TINYINT NOT NULL,
+        review VARCHAR(500) DEFAULT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (routeId, userId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    `CREATE TABLE IF NOT EXISTS route_favorites (
+        routeId INT NOT NULL,
+        userId INT NOT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (routeId, userId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    // ---------- Marketplace (classifieds) ----------
+    `CREATE TABLE IF NOT EXISTS listings (
+        id INT NOT NULL AUTO_INCREMENT,
+        userId INT NOT NULL,
+        title VARCHAR(120) NOT NULL,
+        description TEXT,
+        category VARCHAR(30) NOT NULL,
+        price DECIMAL(10,2) DEFAULT NULL,
+        negotiable TINYINT(1) NOT NULL DEFAULT 0,
+        itemCondition VARCHAR(20) DEFAULT NULL,
+        brand VARCHAR(60) DEFAULT NULL,
+        model VARCHAR(60) DEFAULT NULL,
+        year INT DEFAULT NULL,
+        km INT DEFAULT NULL,
+        location VARCHAR(120) DEFAULT NULL,
+        images LONGTEXT,
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        featuredUntil DATETIME DEFAULT NULL,
+        views INT NOT NULL DEFAULT 0,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_listings_user (userId),
+        KEY idx_listings_status (status, category)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    `CREATE TABLE IF NOT EXISTS listing_favorites (
+        listingId INT NOT NULL,
+        userId INT NOT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (listingId, userId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
 ];
 
 // [table, column, definition]
@@ -116,6 +253,15 @@ const COLUMNS = [
     ['passengerride', 'createdAt', 'DATETIME NULL DEFAULT CURRENT_TIMESTAMP'],
     ['notifications', 'link', 'VARCHAR(150) NULL'],
     ['user', 'termsAcceptedAt', 'DATETIME NULL'],
+    // Private rides (join with an access code)
+    ['rides', 'visibility', "VARCHAR(10) NOT NULL DEFAULT 'public'"],
+    ['rides', 'accessCode', 'VARCHAR(20) NULL'],
+    // Emergency (ICE) info, visible only to the user and shown on the SOS screen
+    ['user', 'bloodType', 'VARCHAR(5) NULL'],
+    ['user', 'allergies', 'VARCHAR(255) NULL'],
+    ['user', 'medicalNotes', 'VARCHAR(500) NULL'],
+    ['user', 'emergencyName', 'VARCHAR(100) NULL'],
+    ['user', 'emergencyPhone', 'VARCHAR(30) NULL'],
 ];
 
 async function columnExists(table, column) {

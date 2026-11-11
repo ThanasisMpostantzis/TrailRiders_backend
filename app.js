@@ -20,6 +20,10 @@ const passengerRidesRoutes = require('./routes/passengerRides.js');
 const subscription = require('./routes/subscription.js');
 const companyEvents = require('./routes/companyEvents.js');
 const socialRouter = require('./routes/social.js');
+const postsRouter = require('./routes/posts.js');
+const tracksRouter = require('./routes/tracks.js');
+const routeLibraryRouter = require('./routes/routeLibrary.js');
+const listingsRouter = require('./routes/listings.js');
 const compEvAuthToken = require('./middlewares/compEvAuthToken.js')
 const { ensureSchema } = require('./utils/schema.js');
 
@@ -43,6 +47,10 @@ app.use('/rides', ridesRoutes);
 app.use('/passengerRides', passengerRidesRoutes);
 app.use('/subscription', subscription);
 app.use('/social', socialRouter);
+app.use('/posts', postsRouter);          // feed
+app.use('/tracks', tracksRouter);        // GPS ride recordings
+app.use('/library', routeLibraryRouter); // best-roads route library
+app.use('/listings', listingsRouter);    // marketplace
 app.all('/companyEvents/*splat', compEvAuthToken); // Express 5 syntax for wildcards
 app.use('/companyEvents', companyEvents);
 
