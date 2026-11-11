@@ -1,74 +1,34 @@
 const { verify } = require('jsonwebtoken');
 
-const { createAccessToken, createSubscriptionToken } = require('../utils/tokens');
+const { createSubscriptionToken } = require('../utils/tokens');
+const { getAccessToken } = require('../middlewares/userAuthToken');
 
+// Checks whether the current access token is valid.
+// With ?subGen=<0|1|2> it also returns a subscription token (used by the subscription routes).
 const tokenCheck = async (req, res) => {
-    const { accToken } = req.cookies;
+    const accToken = getAccessToken(req);
     const { subGen } = req.query;
-    let user;
+
     if (!accToken) {
-        return res.status(401).json({
-        message: "User logged out. Refresh access token",
-        type: "401"
-        });
-    } else {
-        user = verify(accToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-            return {
-                id: user.id,
-                username: user.username,
-                subGen: subGen
-            };
-        });
+        return res.status(401).json({ message: "User logged out. Refresh access token", type: "401" });
     }
 
-    if (subGen != null && subGen != undefined) {
-        const subToken = createSubscriptionToken(user);
-        return res.status(200).json({
-            subToken: subToken
-        });
+    let user;
+    try {
+        user = verify(accToken, process.env.ACCESS_TOKEN_SECRET);
+    } catch {
+        return res.status(401).json({ message: "Invalid or expired token. Refresh access token", type: "401" });
     }
 
-    // Check for access token
-    if (accToken) {
-        const user = verify(accToken, process.env.ACCESS_TOKEN_SECRET);
-        return res.status(401).json({
-            message: "User already logged in",
-            user: {
-                id: user.id,
-                username: user.username
-            }
-        });
+    if (subGen !== undefined && subGen !== null) {
+        const subToken = createSubscriptionToken({ id: user.id, username: user.username, subGen });
+        return res.status(200).json({ subToken });
     }
-    
-    // Check for refresh token
-    const { refToken } = req.cookies;
-    if (!refToken) return res.status(404).json({
-        message: "User hasn't logged in in a looooong time (death row)",
-        type: "error"
-    });
 
-    verify(refToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
-        if (err) return res.status(400).json({
-            message: "Invalid Token",
-            type: "error"
-        });
-
-        const userPayload = {
-            id: user.id,
-            username: user.username
-        }
-
-        const accessToken = createAccessToken(userPayload);
-        res.cookie('accToken', accessToken, {
-            httpOnly: true,
-            secure: true,
-            sameSite: "strict",
-            maxAge: 10 * 60 * 1000 // 10 min
-        });
-
-        return res.status(200).json({
-            accessToken: accessToken
-        });
+    return res.status(200).json({
+        message: "User logged in",
+        type: "success",
+        user: { id: user.id, username: user.username }
     });
 };
 

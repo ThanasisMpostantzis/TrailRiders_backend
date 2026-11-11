@@ -5,19 +5,19 @@ const { sign } = require('jsonwebtoken');
 
 const createRefreshToken = (payload) => {
     return sign(payload, process.env.REFRESH_TOKEN_SECRET, {
-        expiresIn: "20m"
+        expiresIn: "30d"
     });
 }
 
 const createAccessToken = (payload) => {
     return sign(payload, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "10m"
+        expiresIn: "1h"
     });
 }
 
 const createPasswordResetToken = (payload) => {
     return sign(payload, process.env.FORGOT_PASSWORD_TOKEN_SECRET, {
-        expiresIn: "5m"
+        expiresIn: "15m"
     });
 };
 

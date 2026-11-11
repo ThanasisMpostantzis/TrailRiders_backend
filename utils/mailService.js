@@ -2,7 +2,7 @@ const nodeMailer = require('nodemailer')
 
 
 // CONFIG
-const createPasswordResetUrl = (id, token) => `http://localhost:${process.env.PORT || 8000}/auth/resetPassword/?token=${token}`
+const createPasswordResetUrl = (token) => `${process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 8000}`}/auth/resetPassword?token=${encodeURIComponent(token)}`
 
 const transporter = nodeMailer.createTransport({
     host: 'smtp.gmail.com',
@@ -32,7 +32,7 @@ const forgotPasswordTemplate = (email, url) => {
                <br />
                <small><a style="color: #38A169" href=${url}>${url}</a></small>
                <br />
-               <small>The link will expire in 5 mins!</small>
+               <small>The link will expire in 15 minutes.</small>
                <small>If you haven't requested a password reset, cross your fingers.</small>
                <br /><br />
                <p>Thanks,</p>

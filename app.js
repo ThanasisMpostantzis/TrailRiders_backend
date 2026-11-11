@@ -20,6 +20,7 @@ const passengerRidesRoutes = require('./routes/passengerRides.js');
 const subscription = require('./routes/subscription.js');
 const companyEvents = require('./routes/companyEvents.js');
 const compEvAuthToken = require('./middlewares/compEvAuthToken.js')
+const { ensureSchema } = require('./utils/schema.js');
 
 
 // APP CONFIG
@@ -31,6 +32,7 @@ app.use(cors());
 
 
 // APP ROUTES
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/', indexRouter);
 app.use('/auth', authRouter);
 app.use('/api', apiRouter);
@@ -38,12 +40,21 @@ app.use('/event', eventRouter);
 app.use('/rides', ridesRoutes);
 app.use('/passengerRides', passengerRidesRoutes);
 app.use('/subscription', subscription);
-app.all('/companyEvents/*', compEvAuthToken);
+app.all('/companyEvents/*splat', compEvAuthToken); // Express 5 syntax for wildcards
 app.use('/companyEvents', companyEvents);
+
+
+// FALLBACK ERROR HANDLER (e.g. invalid JSON body)
+app.use((err, req, res, next) => {
+    console.error('[app]', err.message);
+    res.status(err.status || 500).json({ message: err.expose ? err.message : "Server error", type: "error" });
+});
 
 
 // APP SERVER
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}...`);
+ensureSchema().finally(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server running on port ${PORT}...`);
+    });
 });

@@ -2,11 +2,14 @@
 
 const express = require('express');
 const router = express.Router();
-const { check, start, update, cancel } = require('../controllers/subscriptionController');
+const authenticateUserToken = require('../middlewares/userAuthToken.js');
+const { plans, check, start, update, cancel } = require('../controllers/subscriptionController');
 
-router.post('/check', check);
-router.post('/start', start);
-router.post('/update', update);
-router.post('/cancel', cancel);
+router.get('/plans', plans);
+router.get('/check', authenticateUserToken, check);
+router.post('/check', authenticateUserToken, check);
+router.post('/start', authenticateUserToken, start);
+router.post('/update', authenticateUserToken, update);
+router.post('/cancel', authenticateUserToken, cancel);
 
 module.exports = router;
