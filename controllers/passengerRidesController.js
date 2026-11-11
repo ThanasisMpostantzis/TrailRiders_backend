@@ -7,6 +7,7 @@
 
 const { query, queryOne } = require('../config/databaseCon.js');
 const { notify } = require('../utils/notify');
+const { checkHostingLimit, notifyFollowers } = require('../utils/social');
 const { idList, toNumberOrNull, todayISO, isISODate, isTime, validateFields, USER_CARD_FIELDS } = require('../utils/helpers');
 
 const RULES = {
@@ -114,6 +115,9 @@ exports.createPRide = async (req, res) => {
     if (error) return res.status(400).json({ message: error, type: "error" });
 
     try {
+        const limit = await checkHostingLimit(req.user.id);
+        if (limit) return res.status(403).json(limit);
+
         const dup = await queryOne(
             'SELECT id FROM passengerride WHERE creatorId = ? AND title = ? AND DATE(date) = ?',
             [req.user.id, body.title.trim(), body.date]
@@ -146,6 +150,11 @@ exports.createPRide = async (req, res) => {
                 Number(body.seats) || 1,
             ]
         );
+        await notifyFollowers(req.user, {
+            subject: 'Free seat offered',
+            description: `${req.user.username} offers a seat: ${body.startLocation.trim()} → ${body.finishLocation.trim()} on ${body.date}.`,
+            link: `/passengerRide/${result.insertId}`,
+        });
         res.status(201).json({ message: "Ride offer created", type: "success", rideId: result.insertId });
     } catch (err) {
         console.error('[pRides/create]', err);

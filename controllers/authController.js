@@ -71,7 +71,7 @@ const login = async (req, res) => {
 
 // SIGNUP
 const signup = async (req, res) => {
-    const { email, username, pwd, fullName } = req.body || {};
+    const { email, username, pwd, fullName, acceptTerms } = req.body || {};
     const cleanUsername = (username || '').trim();
     const cleanEmail = (email || '').trim();
 
@@ -86,6 +86,9 @@ const signup = async (req, res) => {
     }
     if (pwd.length < 6) {
         return res.status(400).json({ message: "Password must be at least 6 characters long", type: "error" });
+    }
+    if (acceptTerms !== true) {
+        return res.status(400).json({ message: "Please accept the Terms of Service and Privacy Policy", type: "error" });
     }
     if (cleanEmail && (cleanEmail.length > 30 || !/^\S+@\S+\.\S+$/.test(cleanEmail))) {
         return res.status(400).json({ message: "Please enter a valid e-mail (max 30 characters)", type: "error" });
@@ -102,7 +105,7 @@ const signup = async (req, res) => {
         }
 
         const result = await query(
-            'INSERT INTO user (username, password, email, fullName) VALUES (?, ?, ?, ?)',
+            'INSERT INTO user (username, password, email, fullName, termsAcceptedAt) VALUES (?, ?, ?, ?, NOW())',
             [cleanUsername, await hashPassword(pwd), cleanEmail || null, (fullName || '').trim() || null]
         );
 
@@ -163,7 +166,7 @@ const googleLogin = async (req, res) => {
             const randomPassword = await hashPassword(require('crypto').randomBytes(24).toString('hex'));
             const email = info.email && info.email.length <= 30 ? info.email : null;
             const result = await query(
-                'INSERT INTO user (username, password, email, fullName, image, google_id) VALUES (?, ?, ?, ?, ?, ?)',
+                'INSERT INTO user (username, password, email, fullName, image, google_id, termsAcceptedAt) VALUES (?, ?, ?, ?, ?, ?, NOW())',
                 [username, randomPassword, email, info.name || null, info.picture || null, info.sub]
             );
             user = { id: result.insertId, username };
@@ -351,6 +354,9 @@ const deleteUser = async (req, res) => {
         await query('DELETE FROM notifications WHERE userId = ?', [userId]);
         await query('DELETE FROM ride_comments WHERE userId = ?', [userId]);
         await query('DELETE FROM ride_ratings WHERE userId = ?', [userId]);
+        await query('DELETE FROM messages WHERE senderId = ? OR receiverId = ?', [userId, userId]);
+        await query('DELETE FROM follows WHERE followerId = ? OR followingId = ?', [userId, userId]);
+        await query('DELETE FROM blocks WHERE blockerId = ? OR blockedId = ?', [userId, userId]);
         await query('DELETE FROM user WHERE id = ?', [userId]);
 
         res.clearCookie('accToken');

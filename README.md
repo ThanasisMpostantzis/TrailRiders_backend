@@ -34,5 +34,10 @@ Cookies (`accToken`, `refToken`) are also set for browser clients.
 | Events | `GET /event?upcoming=1` · `GET /event/:id` · 🔒 `GET /event/my` · `POST /event/create` · `PUT/DELETE /event/:id` · `POST /event/:id/rsvp` |
 | Company events | `POST /companyEvents/create` with header `x-company-token` (create a token with `node scripts/createCompanyToken.js "Company"`) |
 | Premium | `GET /subscription/plans` · 🔒 `GET /subscription/check` · 🔒 `POST /subscription/start|update|cancel?subToken=` (no real payments yet) |
+| Social 🔒 | `GET /social/conversations` · `GET /social/messages/unreadCount` · `GET /social/messages/:userId?after=` · `POST /social/messages/:userId` · `POST/DELETE /social/follow/:userId` · `GET /social/follows/:userId?type=followers|following` · `GET /social/feed` · `GET /social/blocks` · `POST/DELETE /social/block/:userId` · `POST /social/report` |
+
+Free accounts can host up to 3 upcoming rides/ride shares/events at a time (`utils/social.js`, `FREE_ACTIVE_LIMIT`); Premium is unlimited and boosted in lists.
+Signup requires `acceptTerms: true`. Login, signup and password routes are rate limited.
+User reports are stored in the `reports` table (`status = 'open'`) for the team to review.
 
 🔒 = requires login.

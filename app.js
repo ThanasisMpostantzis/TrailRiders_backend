@@ -19,12 +19,14 @@ const ridesRoutes = require('./routes/rides.js');
 const passengerRidesRoutes = require('./routes/passengerRides.js');
 const subscription = require('./routes/subscription.js');
 const companyEvents = require('./routes/companyEvents.js');
+const socialRouter = require('./routes/social.js');
 const compEvAuthToken = require('./middlewares/compEvAuthToken.js')
 const { ensureSchema } = require('./utils/schema.js');
 
 
 // APP CONFIG
 const app = express();
+app.set('trust proxy', 1); // correct client IPs (rate limiting) behind a proxy / hosting provider
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -40,6 +42,7 @@ app.use('/event', eventRouter);
 app.use('/rides', ridesRoutes);
 app.use('/passengerRides', passengerRidesRoutes);
 app.use('/subscription', subscription);
+app.use('/social', socialRouter);
 app.all('/companyEvents/*splat', compEvAuthToken); // Express 5 syntax for wildcards
 app.use('/companyEvents', companyEvents);
 

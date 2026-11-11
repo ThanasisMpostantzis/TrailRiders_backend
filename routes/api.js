@@ -5,6 +5,8 @@ const router = express.Router();
 
 const { query, queryOne } = require('../config/databaseCon.js');
 const authenticateUserToken = require('../middlewares/userAuthToken.js');
+const optionalAuth = require('../middlewares/optionalAuth.js');
+const { checkHostingLimit, FREE_ACTIVE_LIMIT } = require('../utils/social');
 const { PUBLIC_USER_FIELDS } = require('../controllers/authController');
 const { formatRide } = require('../controllers/ridesController');
 
@@ -41,6 +43,12 @@ async function loadProfile(userId) {
         completed: done.length,
         km: Math.round(done.reduce((sum, r) => sum + (Number(r.rideDistance) || 0), 0)),
     };
+    const counts = await queryOne(
+        'SELECT (SELECT COUNT(*) FROM follows WHERE followingId = ?) AS followers, (SELECT COUNT(*) FROM follows WHERE followerId = ?) AS following',
+        [userId, userId]
+    );
+    user.followers = Number(counts.followers);
+    user.following = Number(counts.following);
     return user;
 }
 
@@ -49,6 +57,8 @@ router.get('/me', authenticateUserToken, async (req, res) => {
     try {
         const user = await loadProfile(req.user.id);
         if (!user) return res.status(404).json({ message: "User not found", type: "error" });
+        user.canHost = !(await checkHostingLimit(req.user.id));
+        user.freeHostingLimit = FREE_ACTIVE_LIMIT;
         res.status(200).json(user);
     } catch (err) {
         console.error('[API] me', err);
@@ -57,12 +67,26 @@ router.get('/me', authenticateUserToken, async (req, res) => {
 });
 
 // --- GET USER PROFILE (public, no password) ---
-router.get('/user/:userId', async (req, res) => {
+router.get('/user/:userId', optionalAuth, async (req, res) => {
     try {
         const user = await loadProfile(req.params.userId);
         if (!user) return res.status(404).json({ message: "User not found", type: "error" });
         delete user.email;
         delete user.phone;
+        if (req.user) {
+            const rel = await queryOne(
+                `SELECT
+                    EXISTS(SELECT 1 FROM follows WHERE followerId = ? AND followingId = ?) AS isFollowing,
+                    EXISTS(SELECT 1 FROM follows WHERE followerId = ? AND followingId = ?) AS followsYou,
+                    EXISTS(SELECT 1 FROM blocks WHERE blockerId = ? AND blockedId = ?) AS isBlocked,
+                    EXISTS(SELECT 1 FROM blocks WHERE blockerId = ? AND blockedId = ?) AS blockedYou`,
+                [req.user.id, user.id, user.id, req.user.id, req.user.id, user.id, user.id, req.user.id]
+            );
+            user.isFollowing = !!rel.isFollowing;
+            user.followsYou = !!rel.followsYou;
+            user.isBlocked = !!rel.isBlocked;
+            user.blockedYou = !!rel.blockedYou;
+        }
         res.status(200).json(user);
     } catch (err) {
         console.error('[API] user', err);

@@ -61,6 +61,48 @@ const TABLES = [
         PRIMARY KEY (id),
         KEY idx_event_owner (ownerId)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    // Direct messages between two users
+    `CREATE TABLE IF NOT EXISTS messages (
+        id INT NOT NULL AUTO_INCREMENT,
+        senderId INT NOT NULL,
+        receiverId INT NOT NULL,
+        text VARCHAR(2000) NOT NULL,
+        readAt DATETIME DEFAULT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_messages_pair (senderId, receiverId),
+        KEY idx_messages_receiver (receiverId, readAt)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    `CREATE TABLE IF NOT EXISTS follows (
+        followerId INT NOT NULL,
+        followingId INT NOT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (followerId, followingId),
+        KEY idx_follows_following (followingId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    `CREATE TABLE IF NOT EXISTS blocks (
+        blockerId INT NOT NULL,
+        blockedId INT NOT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (blockerId, blockedId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    // Reports of users / content, reviewed by the team (App Store & Play Store requirement)
+    `CREATE TABLE IF NOT EXISTS reports (
+        id INT NOT NULL AUTO_INCREMENT,
+        reporterId INT NOT NULL,
+        targetType VARCHAR(20) NOT NULL,
+        targetId BIGINT NOT NULL,
+        reason VARCHAR(50) NOT NULL,
+        details VARCHAR(1000) DEFAULT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'open',
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_reports_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
 ];
 
 // [table, column, definition]
@@ -73,6 +115,7 @@ const COLUMNS = [
     ['passengerride', 'seats', 'INT NOT NULL DEFAULT 1'],
     ['passengerride', 'createdAt', 'DATETIME NULL DEFAULT CURRENT_TIMESTAMP'],
     ['notifications', 'link', 'VARCHAR(150) NULL'],
+    ['user', 'termsAcceptedAt', 'DATETIME NULL'],
 ];
 
 async function columnExists(table, column) {

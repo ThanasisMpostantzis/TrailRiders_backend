@@ -2,6 +2,7 @@
 
 const { query, queryOne } = require('../config/databaseCon.js');
 const { notify } = require('../utils/notify');
+const { checkHostingLimit, notifyFollowers, blockedIds } = require('../utils/social');
 
 // ---------- helpers ----------
 
@@ -83,9 +84,15 @@ exports.getAllRides = async (req, res) => {
         if (category) { where.push('category = ?'); params.push(category); }
         if (upcoming === '1' || upcoming === 'true') { where.push('(date IS NULL OR date >= CURDATE())'); }
 
-        const sql = `SELECT * FROM rides ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date ASC, ride_time ASC`;
+        if (req.user) {
+            const hidden = await blockedIds(req.user.id);
+            if (hidden.length) { where.push('creator_id NOT IN (?)'); params.push(hidden); }
+        }
+        const sql = `SELECT r.*, (u.subscribed = 1) AS creatorPremium
+                     FROM rides r LEFT JOIN user u ON u.id = r.creator_id
+                     ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date ASC, ride_time ASC`;
         const rows = await query(sql, params);
-        res.status(200).json(rows.map(formatRide));
+        res.status(200).json(rows.map((row) => ({ ...formatRide(row), creatorPremium: !!row.creatorPremium })));
     } catch (err) {
         console.error('[rides/getAll]', err);
         res.status(500).json({ message: "Server error", type: "error" });
@@ -134,6 +141,9 @@ exports.createRide = async (req, res) => {
     if (error) return res.status(400).json({ message: error, type: "error" });
 
     try {
+        const limit = await checkHostingLimit(req.user.id);
+        if (limit) return res.status(403).json(limit);
+
         const creatorId = req.user.id;
         const result = await query(
             `INSERT INTO rides
@@ -164,6 +174,11 @@ exports.createRide = async (req, res) => {
             ]
         );
         await query('UPDATE user SET rides = COALESCE(rides, 0) + 1 WHERE id = ?', [creatorId]);
+        await notifyFollowers(req.user, {
+            subject: 'New ride from someone you follow',
+            description: `${req.user.username} is organizing "${body.title.trim()}" on ${body.date}.`,
+            rideId: result.insertId,
+        });
 
         res.status(201).json({ message: "Ride created successfully", type: "success", rideId: result.insertId });
     } catch (err) {

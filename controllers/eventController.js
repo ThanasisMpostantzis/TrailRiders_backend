@@ -5,6 +5,7 @@
 
 const { query, queryOne } = require('../config/databaseCon');
 const { notify } = require('../utils/notify');
+const { checkHostingLimit, notifyFollowers } = require('../utils/social');
 const { idList, isISODate, isTime, todayISO, validateFields, USER_CARD_FIELDS } = require('../utils/helpers');
 
 const RULES = {
@@ -128,7 +129,15 @@ const createEvent = async (req, res) => {
         const dup = await queryOne('SELECT id FROM event WHERE name = ? AND ownerId = ? AND eventDate = ?', [body.name.trim(), req.user.id, body.eventDate]);
         if (dup) return res.status(400).json({ message: "Event already exists", type: "error" });
 
+        const limit = await checkHostingLimit(req.user.id);
+        if (limit) return res.status(403).json(limit);
+
         const id = await insertEvent(body, { ownerId: req.user.id });
+        await notifyFollowers(req.user, {
+            subject: 'New event from someone you follow',
+            description: `${req.user.username} created "${body.name.trim()}" on ${body.eventDate}.`,
+            link: `/event/${id}`,
+        });
         res.status(201).json({ message: "Event created successfully", type: "success", eventId: id });
     } catch (err) {
         console.error('[event/create]', err);

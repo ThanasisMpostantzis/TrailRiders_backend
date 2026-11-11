@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const authenticateUserToken = require('../middlewares/userAuthToken.js');
+const optionalAuth = require('../middlewares/optionalAuth.js');
 const {
     getAllRides, getRideById, createRide, updateRide, deleteRide, joinRide, leaveRide, getMyRides,
     getComments, addComment, deleteComment, rateRide
 } = require('../controllers/ridesController');
 
 // Routes
-router.get('/getAllRides', getAllRides);
+router.get('/getAllRides', optionalAuth, getAllRides);
 router.get('/myRides', authenticateUserToken, getMyRides);
 router.get('/get/:id', getRideById);
 router.post('/createRide', authenticateUserToken, createRide);
